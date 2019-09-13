@@ -23,7 +23,6 @@ impl std::error::Error for Error {
             Self::Io(e) => Some(e),
             Self::ObjEdit(e) => Some(e),
             Self::Regex(e) => Some(e),
-            _ => None,
         }
     }
 }
