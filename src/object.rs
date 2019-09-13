@@ -3,7 +3,51 @@ use crate::error::{Error, Result};
 use crate::mach::MachTransform;
 use crate::patch::Patch;
 use goblin::Object;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
+
+fn get_variant_and_identifiers<R: Read + Seek>(
+    reader: &mut R,
+) -> Result<(ar::Variant, Vec<Vec<u8>>)> {
+    let mut ar = ar::Archive::new(reader);
+    let mut identifiers = Vec::new();
+    loop {
+        if let Some(entry) = ar.next_entry() {
+            identifiers.push(entry?.header().identifier().to_vec());
+        } else {
+            break;
+        }
+    }
+    let variant = ar.variant();
+    ar.into_inner()?.seek(SeekFrom::Start(0))?;
+    Ok((variant, identifiers))
+}
+
+enum ArchiveBuilder<'a> {
+    Bsd(ar::Builder<&'a mut dyn Write>),
+    Gnu(ar::GnuBuilder<&'a mut dyn Write>),
+}
+
+impl<'a> ArchiveBuilder<'a> {
+    pub fn new<W: Write>(
+        writer: &'a mut W,
+        variant: ar::Variant,
+        identifiers: Vec<Vec<u8>>,
+    ) -> Self {
+        if variant == ar::Variant::GNU {
+            Self::Gnu(ar::GnuBuilder::new(writer, identifiers))
+        } else {
+            Self::Bsd(ar::Builder::new(writer))
+        }
+    }
+
+    pub fn append<R: Read>(&mut self, header: &ar::Header, data: R) -> Result<()> {
+        match self {
+            Self::Bsd(ar) => ar.append(header, data)?,
+            Self::Gnu(ar) => ar.append(header, data)?,
+        }
+        Ok(())
+    }
+}
 
 pub struct ObjectTransform {
     elf: Option<ElfTransform>,
@@ -29,6 +73,37 @@ impl ObjectTransform {
     }
 
     pub fn apply<R: Read + Seek, W: Write>(
+        &mut self,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> Result<()> {
+        match goblin::peek(reader)? {
+            goblin::Hint::Archive => self.apply_archive(reader, writer),
+            _ => self.apply_object(reader, writer),
+        }
+    }
+
+    fn apply_archive<R: Read + Seek, W: Write>(
+        &mut self,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> Result<()> {
+        let (variant, identifiers) = get_variant_and_identifiers(reader)?;
+        let mut input = ar::Archive::new(reader);
+        let mut output = ArchiveBuilder::new(writer, variant, identifiers);
+        loop {
+            if let Some(mut entry) = input.next_entry().transpose()? {
+                let mut data = Vec::new();
+                self.apply_object(&mut entry, &mut data)?;
+                output.append(entry.header(), data.as_slice())?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_object<R: Read + Seek, W: Write>(
         &mut self,
         reader: &mut R,
         writer: &mut W,
