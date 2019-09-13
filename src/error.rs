@@ -4,6 +4,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     Io(std::io::Error),
     Goblin(goblin::error::Error),
+    Scroll(scroll::Error),
     Malformed(String),
     ReplaceString {
         original: String,
@@ -17,6 +18,7 @@ impl std::fmt::Display for Error {
         match self {
             Self::Io(e) => write!(f, "{}", e),
             Self::Goblin(e) => write!(f, "{}", e),
+            Self::Scroll(e) => write!(f, "{}", e),
             Self::Malformed(s) => write!(f, "{}", s),
             Self::ReplaceString { original, replacement } => write!(
                 f,
@@ -31,6 +33,7 @@ impl std::error::Error for Error {
         match self {
             Self::Io(e) => Some(e),
             Self::Goblin(e) => Some(e),
+            Self::Scroll(e) => Some(e),
             _ => None,
         }
     }
@@ -45,5 +48,11 @@ impl From<goblin::error::Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err)
+    }
+}
+
+impl From<scroll::Error> for Error {
+    fn from(err: scroll::Error) -> Self {
+        Self::Scroll(err)
     }
 }

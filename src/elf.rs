@@ -1,10 +1,12 @@
 use crate::error::{Error, Result};
+use crate::patch::Patch;
 use goblin::container::{Container, Ctx, Endian};
 use goblin::elf::section_header;
 use goblin::elf::sym::Sym;
 use goblin::elf::Elf;
 use goblin::strtab::Strtab;
-use scroll::ctx::{TryFromCtx, TryIntoCtx};
+use scroll::ctx::TryFromCtx;
+use scroll::Pread;
 
 pub fn replace_in_strtab(
     data: &mut [u8],
@@ -33,40 +35,67 @@ fn context_from_elf(elf: &Elf) -> Ctx {
     Ctx::new(container, endian)
 }
 
-pub fn transform_symtab<F>(bytes: &mut [u8], elf: &Elf, mut f: F) -> Result<()>
-where
-    F: FnMut(&str, Sym) -> (Option<String>, Option<Sym>),
-{
-    let ctx = context_from_elf(elf);
-    for header in &elf.section_headers {
-        if header.sh_type as u32 == section_header::SHT_SYMTAB {
-            if (header.sh_entsize as usize) < Sym::size(ctx.container) {
-                return Err(Error::Malformed("sh_entsize too small".to_string()));
-            };
-            let count = if header.sh_entsize == 0 {
-                0
-            } else {
-                header.sh_size / header.sh_entsize
-            };
-            let begin = header.sh_offset as usize;
-            let end = begin + (count * header.sh_entsize) as usize;
-            let mut string_replacements = Vec::new();
-            for sym_bytes in bytes[begin..end].chunks_exact_mut(header.sh_entsize as usize) {
-                let (sym, _) = Sym::try_from_ctx(sym_bytes, ctx)?;
-                let name = elf.strtab.get(sym.st_name).ok_or(Error::StrtabAccess)??;
-                let name_index = sym.st_name;
-                let (new_name, new_sym) = f(name, sym);
-                if let Some(new_name) = new_name {
-                    string_replacements.push((name_index, new_name));
+pub trait SymTransform: FnMut(&str, &Sym) -> (Option<String>, Option<Sym>) {}
+impl<T> SymTransform for T where T: FnMut(&str, &Sym) -> (Option<String>, Option<Sym>) {}
+
+pub struct ElfTransform {
+    symtab: Vec<Box<dyn SymTransform>>,
+}
+
+impl ElfTransform {
+    pub fn new() -> Self {
+        Self { symtab: Vec::new() }
+    }
+
+    pub fn with_symtab_transform(&mut self, transform: Box<dyn SymTransform>) -> &mut Self {
+        self.symtab.push(transform);
+        self
+    }
+
+    pub fn with_symtab_transforms(
+        &mut self,
+        mut transforms: Vec<Box<dyn SymTransform>>,
+    ) -> &mut Self {
+        self.symtab.append(&mut transforms);
+        self
+    }
+
+    pub fn apply(&mut self, bytes: &[u8], elf: &Elf) -> Result<Vec<Patch>> {
+        let mut patches = Vec::new();
+        patches.extend(self.apply_symtab(bytes, elf)?);
+        Ok(patches)
+    }
+
+    fn apply_symtab(&mut self, bytes: &[u8], elf: &Elf) -> Result<Vec<Patch>> {
+        let ctx = context_from_elf(elf);
+        let mut patches = Vec::new();
+        for header in &elf.section_headers {
+            if header.sh_type as u32 == section_header::SHT_SYMTAB {
+                if (header.sh_entsize as usize) < Sym::size(ctx.container) {
+                    return Err(Error::Malformed("sh_entsize too small".to_string()));
+                };
+                let count = if header.sh_entsize == 0 {
+                    0
+                } else {
+                    header.sh_size / header.sh_entsize
+                };
+                for index in 0..count {
+                    let sym_offset = (header.sh_offset + index * header.sh_entsize) as usize;
+                    let (sym, _) = Sym::try_from_ctx(&bytes[sym_offset..], ctx)?;
+                    let name_offset = sym.st_name;
+                    let name = bytes.pread(name_offset)?;
+                    for f in &mut self.symtab {
+                        let (new_name, new_sym) = f(name, &sym);
+                        if let Some(new_sym) = new_sym {
+                            patches.push(Patch::new(sym_offset, new_sym, &ctx)?);
+                        }
+                        if let Some(new_name) = new_name {
+                            patches.push(Patch::from_str(name_offset, &new_name));
+                        }
+                    }
                 }
-                if let Some(new_sym) = new_sym {
-                    new_sym.try_into_ctx(sym_bytes, ctx);
-                }
-            }
-            for (index, string) in string_replacements {
-                replace_in_strtab(bytes, &elf.strtab, index, &string);
             }
         }
+        Ok(patches)
     }
-    Ok(())
 }
