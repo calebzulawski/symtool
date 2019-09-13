@@ -33,6 +33,11 @@ impl MachTransform {
         Self { symtab: Vec::new() }
     }
 
+    pub fn with_symtab_transform(&mut self, transform: Box<dyn NlistTransform>) -> &mut Self {
+        self.symtab.push(transform);
+        self
+    }
+
     pub fn with_symtab_transforms(
         &mut self,
         mut transforms: Vec<Box<dyn NlistTransform>>,

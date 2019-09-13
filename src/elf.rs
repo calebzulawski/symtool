@@ -4,22 +4,8 @@ use goblin::container::{Container, Ctx, Endian};
 use goblin::elf::section_header;
 use goblin::elf::sym::Sym;
 use goblin::elf::Elf;
-use goblin::strtab::Strtab;
 use scroll::ctx::TryFromCtx;
 use scroll::Pread;
-
-pub fn replace_in_strtab(
-    data: &mut [u8],
-    strtab: &Strtab,
-    offset: usize,
-    replacement: &str,
-) -> Result<()> {
-    crate::manip::replace_str(
-        data,
-        strtab.get(offset).ok_or(Error::StrtabAccess)??,
-        replacement,
-    )
-}
 
 fn context_from_elf(elf: &Elf) -> Ctx {
     let container = if elf.is_64 {

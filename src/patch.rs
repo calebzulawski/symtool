@@ -28,4 +28,8 @@ impl Patch {
             data: patch.bytes().collect(),
         }
     }
+
+    pub fn apply(&self, data: &mut [u8]) {
+        data[self.offset..(self.offset + self.data.len())].clone_from_slice(&self.data);
+    }
 }

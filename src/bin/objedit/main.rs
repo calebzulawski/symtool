@@ -1,10 +1,7 @@
-use clap::{
-    app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg, SubCommand,
-};
-use goblin::mach::Mach;
-use goblin::Object;
+use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg};
 use std::io::Write;
 
+mod error;
 mod visibility;
 
 fn main() {

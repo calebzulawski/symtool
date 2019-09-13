@@ -1,5 +1,7 @@
-use crate::elf::SymMap;
-use crate::mach::NlistMap;
+use crate::elf::ElfTransform;
+use crate::error::{Error, Result};
+use crate::mach::MachTransform;
+use crate::patch::Patch;
 use goblin::Object;
 use std::io::{Read, Seek, Write};
 
@@ -10,7 +12,7 @@ pub struct ObjectTransform {
 
 impl ObjectTransform {
     pub fn new() -> Self {
-        ObjectTransformation {
+        Self {
             elf: None,
             mach: None,
         }
@@ -26,27 +28,43 @@ impl ObjectTransform {
         self
     }
 
-    pub fn apply<R: Read + Seek, W: Write>(reader: &R, writer: &W) -> Result<()> {
+    pub fn apply<R: Read + Seek, W: Write>(
+        &mut self,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> Result<()> {
         let mut buf = Vec::new();
-        reader.read_to_end(&buf);
-        let patches = match Object::parse(&buf) {
-            Elf(elf) => self.transform_elf(&buf, elf),
-            Mach(mach) => self.transform_mach(&buf, mach),
+        reader.read_to_end(&mut buf)?;
+        let patches = match Object::parse(&buf)? {
+            Object::Elf(elf) => self.transform_elf(&buf, elf),
+            Object::Mach(mach) => self.transform_mach(&buf, mach),
             _ => Err(Error::UnknownObject),
         }?;
+        for patch in patches {
+            patch.apply(&mut buf);
+        }
+        writer.write_all(&buf)?;
+        Ok(())
     }
 
-    fn transform_elf(data: &[u8], elf: goblin::Elf) -> Result<Vec<Patch>> {
-        if let Some(transform) = &self.elf {
+    fn transform_elf(&mut self, data: &[u8], elf: goblin::elf::Elf) -> Result<Vec<Patch>> {
+        if let Some(transform) = &mut self.elf {
             transform.apply(&data, &elf)
         } else {
             Ok(Vec::new())
         }
     }
 
-    fn transform_mach(data: &[u8], mach: goblin::Mach) -> Result<Vec<Patch>> {
-        if let Some(transform) = &self.mach {
-            transform.apply(&data, &mach)
+    fn transform_mach(&mut self, data: &[u8], mach: goblin::mach::Mach) -> Result<Vec<Patch>> {
+        match mach {
+            goblin::mach::Mach::Binary(macho) => self.transform_macho(data, macho),
+            _ => Err(Error::FatBinaryUnsupported),
+        }
+    }
+
+    fn transform_macho(&mut self, data: &[u8], macho: goblin::mach::MachO) -> Result<Vec<Patch>> {
+        if let Some(transform) = &mut self.mach {
+            transform.apply(&data, &macho)
         } else {
             Ok(Vec::new())
         }

@@ -10,7 +10,8 @@ pub enum Error {
         original: String,
         replacement: String,
     },
-    StrtabAccess,
+    UnknownObject,
+    FatBinaryUnsupported,
 }
 
 impl std::fmt::Display for Error {
@@ -20,10 +21,11 @@ impl std::fmt::Display for Error {
             Self::Goblin(e) => write!(f, "{}", e),
             Self::Scroll(e) => write!(f, "{}", e),
             Self::Malformed(s) => write!(f, "{}", s),
-            Self::ReplaceString { original, replacement } => write!(
+            Self::ReplaceString { original, replacement } => {write!(
                 f,
-                "Replacement string (\"{}\") must be the same size or smaller than the original (\"{}\")", replacement, original),
-            Self::StrtabAccess => write!(f, "Offset not in range of strtab"),
+                "Replacement string (\"{}\") must be the same size or smaller than the original (\"{}\")", replacement, original)},
+            Self::UnknownObject => write!(f, "Unknown object type"),
+            Self::FatBinaryUnsupported => write!(f, "Fat MachO binaries are not yet supported"),
         }
     }
 }
