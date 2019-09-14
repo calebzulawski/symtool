@@ -1,4 +1,5 @@
 pub type Result<T> = std::result::Result<T, Error>;
+pub type TransformResult<T, E> = std::result::Result<T, TransformError<E>>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -60,5 +61,74 @@ impl From<std::io::Error> for Error {
 impl From<scroll::Error> for Error {
     fn from(err: scroll::Error) -> Self {
         Self::Scroll(err)
+    }
+}
+
+#[derive(Debug)]
+pub enum TransformError<T>
+where
+    T: std::error::Error,
+{
+    ObjEdit(Error),
+    Transform(T),
+}
+
+impl<T> std::fmt::Display for TransformError<T>
+where
+    T: std::error::Error,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::ObjEdit(e) => write!(f, "{}", e),
+            Self::Transform(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl<T> std::error::Error for TransformError<T>
+where
+    T: std::error::Error + 'static,
+{
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::ObjEdit(e) => Some(e),
+            Self::Transform(e) => e.source(),
+        }
+    }
+}
+
+impl<T> From<Error> for TransformError<T>
+where
+    T: std::error::Error,
+{
+    fn from(err: Error) -> Self {
+        Self::ObjEdit(err)
+    }
+}
+
+impl<T> From<goblin::error::Error> for TransformError<T>
+where
+    T: std::error::Error,
+{
+    fn from(err: goblin::error::Error) -> Self {
+        Self::ObjEdit(Error::Goblin(err))
+    }
+}
+
+impl<T> From<std::io::Error> for TransformError<T>
+where
+    T: std::error::Error,
+{
+    fn from(err: std::io::Error) -> Self {
+        Self::ObjEdit(Error::Io(err))
+    }
+}
+
+impl<T> From<scroll::Error> for TransformError<T>
+where
+    T: std::error::Error,
+{
+    fn from(err: scroll::Error) -> Self {
+        Self::ObjEdit(Error::Scroll(err))
     }
 }

@@ -1,4 +1,3 @@
-use crate::error::Result;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use goblin::elf::sym::{Sym, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
@@ -105,7 +104,7 @@ enum Mode {
     },
 }
 
-pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<()> {
+pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::error::Error>> {
     let mode = if matches.is_present("all-hidden") {
         Mode::AllHidden
     } else if matches.is_present("all-default") {
@@ -125,71 +124,73 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<()> {
         }
     };
 
-    let transform: Box<objedit::object::ObjectTransform> = Box::new(move |bytes, object| {
-        let mut patches = Vec::new();
-        match object {
-            objedit::object::Object::Elf(elf) => {
-                if let Some(iter) = objedit::elf::SymtabIter::symtab_from_elf(bytes, &elf).unwrap()
-                {
-                    for (ref name, ref sym) in
-                        iter.collect::<objedit::error::Result<Vec<_>>>().unwrap()
-                    {
-                        let new_sym = match mode {
-                            Mode::AllHidden => Some(make_sym_hidden(sym)),
-                            Mode::AllDefault => Some(make_sym_default(sym)),
-                            Mode::Regex {
-                                ref hidden,
-                                ref default,
-                            } => {
-                                if default.is_some() && default.as_ref().unwrap().is_match(name) {
-                                    Some(make_sym_default(sym))
-                                } else if hidden.is_some()
-                                    && hidden.as_ref().unwrap().is_match(name)
-                                {
-                                    Some(make_sym_hidden(sym))
-                                } else {
-                                    None
+    let transform: Box<objedit::object::ObjectTransform<crate::error::Error>> =
+        Box::new(move |bytes, object| {
+            let mut patches = Vec::new();
+            match object {
+                objedit::object::Object::Elf(elf) => {
+                    if let Some(iter) = objedit::elf::SymtabIter::symtab_from_elf(bytes, &elf)? {
+                        for (ref name, ref sym) in
+                            iter.collect::<objedit::error::Result<Vec<_>>>()?
+                        {
+                            let new_sym = match mode {
+                                Mode::AllHidden => Some(make_sym_hidden(sym)),
+                                Mode::AllDefault => Some(make_sym_default(sym)),
+                                Mode::Regex {
+                                    ref hidden,
+                                    ref default,
+                                } => {
+                                    if default.is_some() && default.as_ref().unwrap().is_match(name)
+                                    {
+                                        Some(make_sym_default(sym))
+                                    } else if hidden.is_some()
+                                        && hidden.as_ref().unwrap().is_match(name)
+                                    {
+                                        Some(make_sym_hidden(sym))
+                                    } else {
+                                        None
+                                    }
                                 }
+                            };
+                            if new_sym.is_some() {
+                                patches.push(sym.patch_with(new_sym.unwrap())?);
                             }
-                        };
-                        if new_sym.is_some() {
-                            patches.push(sym.patch_with(new_sym.unwrap()).unwrap());
+                        }
+                    }
+                }
+                objedit::object::Object::MachO(mach) => {
+                    if let Some(iter) = objedit::mach::SymtabIter::from_mach(bytes, &mach) {
+                        for (ref name, ref nlist) in
+                            iter.collect::<objedit::error::Result<Vec<_>>>()?
+                        {
+                            let new_nlist = match mode {
+                                Mode::AllHidden => make_nlist_hidden(nlist),
+                                Mode::AllDefault => make_nlist_default(nlist),
+                                Mode::Regex {
+                                    ref hidden,
+                                    ref default,
+                                } => {
+                                    if default.is_some() && default.as_ref().unwrap().is_match(name)
+                                    {
+                                        make_nlist_default(nlist)
+                                    } else if hidden.is_some()
+                                        && hidden.as_ref().unwrap().is_match(name)
+                                    {
+                                        make_nlist_hidden(nlist)
+                                    } else {
+                                        None
+                                    }
+                                }
+                            };
+                            if new_nlist.is_some() {
+                                patches.push(nlist.patch_with(new_nlist.unwrap())?);
+                            }
                         }
                     }
                 }
             }
-            objedit::object::Object::MachO(mach) => {
-                if let Some(iter) = objedit::mach::SymtabIter::from_mach(bytes, &mach) {
-                    for (ref name, ref nlist) in
-                        iter.collect::<objedit::error::Result<Vec<_>>>().unwrap()
-                    {
-                        let new_nlist = match mode {
-                            Mode::AllHidden => make_nlist_hidden(nlist),
-                            Mode::AllDefault => make_nlist_default(nlist),
-                            Mode::Regex {
-                                ref hidden,
-                                ref default,
-                            } => {
-                                if default.is_some() && default.as_ref().unwrap().is_match(name) {
-                                    make_nlist_default(nlist)
-                                } else if hidden.is_some()
-                                    && hidden.as_ref().unwrap().is_match(name)
-                                {
-                                    make_nlist_hidden(nlist)
-                                } else {
-                                    None
-                                }
-                            }
-                        };
-                        if new_nlist.is_some() {
-                            patches.push(nlist.patch_with(new_nlist.unwrap()).unwrap());
-                        }
-                    }
-                }
-            }
-        }
-        patches
-    });
+            Ok(patches)
+        });
 
     let mut input = std::fs::File::open(matches.value_of("INPUT").unwrap())?;
     let mut output = std::fs::File::create(matches.value_of("OUTPUT").unwrap())?;

@@ -1,4 +1,4 @@
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, TransformError, TransformResult};
 use crate::patch::Patch;
 use goblin::elf::Elf;
 use goblin::mach::MachO;
@@ -53,16 +53,18 @@ pub enum Object<'a> {
     MachO(MachO<'a>),
 }
 
-pub type ObjectTransform = dyn for<'a> Fn(&'a [u8], Object) -> Vec<Patch>;
+pub type ObjectTransform<Error> =
+    dyn for<'a> Fn(&'a [u8], Object) -> std::result::Result<Vec<Patch>, Error>;
 
-pub fn transform_object<'b, R, W>(
+pub fn transform_object<'b, R, W, E>(
     reader: &mut R,
     writer: &mut W,
-    transformation: &'b ObjectTransform,
-) -> Result<()>
+    transformation: &'b ObjectTransform<E>,
+) -> TransformResult<(), E>
 where
     R: Read + Seek,
     W: Write,
+    E: std::error::Error,
 {
     match goblin::peek(reader)? {
         goblin::Hint::Archive => transform_archive(reader, writer, transformation),
@@ -70,14 +72,15 @@ where
     }
 }
 
-fn transform_archive<'b, R, W>(
+fn transform_archive<'b, R, W, E>(
     reader: &mut R,
     writer: &mut W,
-    transformation: &'b ObjectTransform,
-) -> Result<()>
+    transformation: &'b ObjectTransform<E>,
+) -> TransformResult<(), E>
 where
     R: Read + Seek,
     W: Write,
+    E: std::error::Error,
 {
     let (variant, identifiers) = get_variant_and_identifiers(reader)?;
     let mut input = ar::Archive::new(reader);
@@ -94,14 +97,15 @@ where
     Ok(())
 }
 
-fn transform_single<'b, R, W>(
+fn transform_single<'b, R, W, E>(
     reader: &mut R,
     writer: &mut W,
-    transformation: &'b ObjectTransform,
-) -> Result<()>
+    transformation: &'b ObjectTransform<E>,
+) -> TransformResult<(), E>
 where
     R: Read + Seek,
     W: Write,
+    E: std::error::Error,
 {
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
@@ -110,7 +114,7 @@ where
         goblin::Object::Mach(goblin::mach::Mach::Binary(macho)) => Ok(Object::MachO(macho)),
         _ => Err(Error::UnknownObject),
     }?;
-    let patches = transformation(&buf, object);
+    let patches = transformation(&buf, object).map_err(|e| TransformError::Transform(e))?;
     for patch in patches {
         patch.apply(&mut buf);
     }
