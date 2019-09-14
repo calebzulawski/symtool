@@ -3,7 +3,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     Io(std::io::Error),
-    ObjEdit(objedit::Error),
+    ObjEdit(objedit::error::Error),
     Regex(regex::Error),
 }
 
@@ -33,8 +33,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<objedit::Error> for Error {
-    fn from(err: objedit::Error) -> Self {
+impl From<objedit::error::Error> for Error {
+    fn from(err: objedit::error::Error) -> Self {
         Self::ObjEdit(err)
     }
 }

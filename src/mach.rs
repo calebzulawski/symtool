@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::patch::{Location, Patch};
+use crate::patch::Location;
 use goblin::container::{Container, Ctx, Endian};
 use goblin::mach::load_command::{CommandVariant, SymtabCommand};
 use goblin::mach::symbols::Nlist;
@@ -21,60 +21,6 @@ fn context_from_macho(macho: &MachO) -> Ctx {
     Ctx::new(container, endian)
 }
 
-pub trait NlistTransform: FnMut(&str, &Nlist) -> (Option<String>, Option<Nlist>) {}
-impl<T> NlistTransform for T where T: FnMut(&str, &Nlist) -> (Option<String>, Option<Nlist>) {}
-
-pub struct MachTransform {
-    symtab: Vec<Box<dyn NlistTransform>>,
-}
-
-impl MachTransform {
-    pub fn new() -> Self {
-        Self { symtab: Vec::new() }
-    }
-
-    pub fn with_symtab_transform(&mut self, transform: Box<dyn NlistTransform>) -> &mut Self {
-        self.symtab.push(transform);
-        self
-    }
-
-    pub fn with_symtab_transforms(
-        &mut self,
-        mut transforms: Vec<Box<dyn NlistTransform>>,
-    ) -> &mut Self {
-        self.symtab.append(&mut transforms);
-        self
-    }
-
-    pub fn apply(&mut self, bytes: &[u8], mach: &MachO) -> Result<Vec<Patch>> {
-        let mut patches = Vec::new();
-        patches.extend(self.apply_symtab(bytes, mach)?);
-        Ok(patches)
-    }
-
-    fn apply_symtab(&mut self, bytes: &[u8], macho: &MachO) -> Result<Vec<Patch>> {
-        if self.symtab.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut patches = Vec::new();
-        if let Some(iter) = SymtabIter::from_mach(bytes, macho) {
-            for nlist_info in iter {
-                let nlist_info = nlist_info?;
-                for f in &mut self.symtab {
-                    let (new_name, new_nlist) = f(nlist_info.name, &nlist_info.nlist);
-                    if let Some(new_nlist) = new_nlist {
-                        patches.push(Patch::new(&nlist_info.nlist_location, new_nlist)?);
-                    }
-                    if let Some(new_name) = new_name {
-                        patches.push(Patch::from_str(&nlist_info.name_location, &new_name)?);
-                    }
-                }
-            }
-        }
-        Ok(patches)
-    }
-}
-
 pub struct SymtabIter<'a> {
     bytes: &'a [u8],
     ctx: Ctx,
@@ -85,7 +31,7 @@ pub struct SymtabIter<'a> {
 }
 
 impl<'a> SymtabIter<'a> {
-    fn from_load_command(bytes: &'a [u8], command: &SymtabCommand, ctx: Ctx) -> Self {
+    pub fn from_load_command(bytes: &'a [u8], command: &SymtabCommand, ctx: Ctx) -> Self {
         Self {
             bytes: bytes,
             ctx: ctx,
@@ -96,7 +42,7 @@ impl<'a> SymtabIter<'a> {
         }
     }
 
-    fn from_mach(bytes: &'a [u8], mach: &MachO) -> Option<Self> {
+    pub fn from_mach(bytes: &'a [u8], mach: &MachO) -> Option<Self> {
         let ctx = context_from_macho(mach);
         for command in &mach.load_commands {
             if let CommandVariant::Symtab(command) = command.command {
@@ -108,10 +54,10 @@ impl<'a> SymtabIter<'a> {
 }
 
 pub struct NlistInfo<'a> {
-    name: &'a str,
-    name_location: Location,
-    nlist: Nlist,
-    nlist_location: Location,
+    pub name: &'a str,
+    pub name_location: Location,
+    pub nlist: Nlist,
+    pub nlist_location: Location,
 }
 
 impl<'a> std::iter::Iterator for SymtabIter<'a> {

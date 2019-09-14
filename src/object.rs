@@ -1,8 +1,7 @@
-use crate::elf::ElfTransform;
 use crate::error::{Error, Result};
-use crate::mach::MachTransform;
 use crate::patch::Patch;
-use goblin::Object;
+use goblin::elf::Elf;
+use goblin::mach::MachO;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 fn get_variant_and_identifiers<R: Read + Seek>(
@@ -49,99 +48,72 @@ impl<'a> ArchiveBuilder<'a> {
     }
 }
 
-pub struct ObjectTransform {
-    elf: Option<ElfTransform>,
-    mach: Option<MachTransform>,
+pub enum Object<'a> {
+    Elf(Elf<'a>),
+    MachO(MachO<'a>),
 }
 
-impl ObjectTransform {
-    pub fn new() -> Self {
-        Self {
-            elf: None,
-            mach: None,
-        }
-    }
+pub type ObjectTransform = dyn for<'a> Fn(&'a [u8], Object) -> Vec<Patch>;
 
-    pub fn with_elf_transform(&mut self, transform: ElfTransform) -> &mut Self {
-        self.elf = Some(transform);
-        self
+pub fn transform_object<'b, R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    transformation: &'b ObjectTransform,
+) -> Result<()>
+where
+    R: Read + Seek,
+    W: Write,
+{
+    match goblin::peek(reader)? {
+        goblin::Hint::Archive => transform_archive(reader, writer, transformation),
+        _ => transform_single(reader, writer, transformation),
     }
+}
 
-    pub fn with_mach_transform(&mut self, transform: MachTransform) -> &mut Self {
-        self.mach = Some(transform);
-        self
-    }
-
-    pub fn apply<R: Read + Seek, W: Write>(
-        &mut self,
-        reader: &mut R,
-        writer: &mut W,
-    ) -> Result<()> {
-        match goblin::peek(reader)? {
-            goblin::Hint::Archive => self.apply_archive(reader, writer),
-            _ => self.apply_object(reader, writer),
-        }
-    }
-
-    fn apply_archive<R: Read + Seek, W: Write>(
-        &mut self,
-        reader: &mut R,
-        writer: &mut W,
-    ) -> Result<()> {
-        let (variant, identifiers) = get_variant_and_identifiers(reader)?;
-        let mut input = ar::Archive::new(reader);
-        let mut output = ArchiveBuilder::new(writer, variant, identifiers);
-        loop {
-            if let Some(mut entry) = input.next_entry().transpose()? {
-                let mut data = Vec::new();
-                self.apply_object(&mut entry, &mut data)?;
-                output.append(entry.header(), data.as_slice())?;
-            } else {
-                break;
-            }
-        }
-        Ok(())
-    }
-
-    fn apply_object<R: Read + Seek, W: Write>(
-        &mut self,
-        reader: &mut R,
-        writer: &mut W,
-    ) -> Result<()> {
-        let mut buf = Vec::new();
-        reader.read_to_end(&mut buf)?;
-        let patches = match Object::parse(&buf)? {
-            Object::Elf(elf) => self.transform_elf(&buf, elf),
-            Object::Mach(mach) => self.transform_mach(&buf, mach),
-            _ => Err(Error::UnknownObject),
-        }?;
-        for patch in patches {
-            patch.apply(&mut buf);
-        }
-        writer.write_all(&buf)?;
-        Ok(())
-    }
-
-    fn transform_elf(&mut self, data: &[u8], elf: goblin::elf::Elf) -> Result<Vec<Patch>> {
-        if let Some(transform) = &mut self.elf {
-            transform.apply(&data, &elf)
+fn transform_archive<'b, R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    transformation: &'b ObjectTransform,
+) -> Result<()>
+where
+    R: Read + Seek,
+    W: Write,
+{
+    let (variant, identifiers) = get_variant_and_identifiers(reader)?;
+    let mut input = ar::Archive::new(reader);
+    let mut output = ArchiveBuilder::new(writer, variant, identifiers);
+    loop {
+        if let Some(mut entry) = input.next_entry().transpose()? {
+            let mut data = Vec::new();
+            transform_single(&mut entry, &mut data, transformation)?;
+            output.append(entry.header(), data.as_slice())?;
         } else {
-            Ok(Vec::new())
+            break;
         }
     }
+    Ok(())
+}
 
-    fn transform_mach(&mut self, data: &[u8], mach: goblin::mach::Mach) -> Result<Vec<Patch>> {
-        match mach {
-            goblin::mach::Mach::Binary(macho) => self.transform_macho(data, macho),
-            _ => Err(Error::FatBinaryUnsupported),
-        }
+fn transform_single<'b, R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    transformation: &'b ObjectTransform,
+) -> Result<()>
+where
+    R: Read + Seek,
+    W: Write,
+{
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+    let object = match goblin::Object::parse(&buf)? {
+        goblin::Object::Elf(elf) => Ok(Object::Elf(elf)),
+        goblin::Object::Mach(goblin::mach::Mach::Binary(macho)) => Ok(Object::MachO(macho)),
+        _ => Err(Error::UnknownObject),
+    }?;
+    let patches = transformation(&buf, object);
+    for patch in patches {
+        patch.apply(&mut buf);
     }
-
-    fn transform_macho(&mut self, data: &[u8], macho: goblin::mach::MachO) -> Result<Vec<Patch>> {
-        if let Some(transform) = &mut self.mach {
-            transform.apply(&data, &macho)
-        } else {
-            Ok(Vec::new())
-        }
-    }
+    writer.write_all(&buf)?;
+    Ok(())
 }
