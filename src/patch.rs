@@ -3,10 +3,45 @@ use goblin::container::Ctx;
 use scroll::ctx::{SizeWith, TryIntoCtx};
 
 #[derive(Debug)]
-pub struct Location {
-    pub(crate) offset: usize,
-    pub(crate) size: usize,
-    pub(crate) ctx: Ctx,
+pub(crate) struct Location {
+    pub offset: usize,
+    pub size: usize,
+    pub ctx: Ctx,
+}
+
+#[derive(Debug)]
+pub struct Rooted<T> {
+    pub value: T,
+    location: Location,
+}
+
+impl<T> Rooted<T> {
+    pub(crate) fn new(location: Location, value: T) -> Self {
+        Self {
+            value: value,
+            location: location,
+        }
+    }
+
+    pub fn patch_with<U>(&self, value: U) -> Result<Patch>
+    where
+        U: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error, Size = usize>
+            + SizeWith<Ctx, Units = usize>,
+    {
+        Patch::from_ctx(&self.location, value)
+    }
+
+    pub fn patch_with_bytes(&self, value: &[u8]) -> Result<Patch> {
+        Patch::from_bytes(&self.location, value)
+    }
+}
+
+impl<T> std::ops::Deref for Rooted<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
 }
 
 #[derive(Debug)]
@@ -16,7 +51,7 @@ pub struct Patch {
 }
 
 impl Patch {
-    pub fn new<T>(location: &Location, data: T) -> Result<Self>
+    fn from_ctx<T>(location: &Location, data: T) -> Result<Self>
     where
         T: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error, Size = usize>
             + SizeWith<Ctx, Units = usize>,
@@ -33,13 +68,13 @@ impl Patch {
         })
     }
 
-    pub fn from_str(location: &Location, patch: &str) -> Result<Self> {
-        if patch.len() > location.size {
+    fn from_bytes(location: &Location, data: &[u8]) -> Result<Self> {
+        if data.len() > location.size {
             return Err(Error::PatchTooBig);
         }
         Ok(Self {
             offset: location.offset,
-            data: patch.bytes().collect(),
+            data: data.to_vec(),
         })
     }
 

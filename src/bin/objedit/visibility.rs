@@ -131,69 +131,58 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<()> {
             objedit::object::Object::Elf(elf) => {
                 if let Some(iter) = objedit::elf::SymtabIter::symtab_from_elf(bytes, &elf).unwrap()
                 {
-                    for sym_info in iter {
-                        let sym_info = sym_info.unwrap();
-                        let sym = match mode {
-                            Mode::AllHidden => Some(make_sym_hidden(&sym_info.sym)),
-                            Mode::AllDefault => Some(make_sym_default(&sym_info.sym)),
+                    for (ref name, ref sym) in
+                        iter.collect::<objedit::error::Result<Vec<_>>>().unwrap()
+                    {
+                        let new_sym = match mode {
+                            Mode::AllHidden => Some(make_sym_hidden(sym)),
+                            Mode::AllDefault => Some(make_sym_default(sym)),
                             Mode::Regex {
                                 ref hidden,
                                 ref default,
                             } => {
-                                if default.is_some()
-                                    && default.as_ref().unwrap().is_match(sym_info.name)
-                                {
-                                    Some(make_sym_default(&sym_info.sym))
+                                if default.is_some() && default.as_ref().unwrap().is_match(name) {
+                                    Some(make_sym_default(sym))
                                 } else if hidden.is_some()
-                                    && hidden.as_ref().unwrap().is_match(sym_info.name)
+                                    && hidden.as_ref().unwrap().is_match(name)
                                 {
-                                    Some(make_sym_hidden(&sym_info.sym))
+                                    Some(make_sym_hidden(sym))
                                 } else {
                                     None
                                 }
                             }
                         };
-                        if sym.is_some() {
-                            patches.push(
-                                objedit::patch::Patch::new(&sym_info.sym_location, sym.unwrap())
-                                    .unwrap(),
-                            );
+                        if new_sym.is_some() {
+                            patches.push(sym.patch_with(new_sym.unwrap()).unwrap());
                         }
                     }
                 }
             }
             objedit::object::Object::MachO(mach) => {
                 if let Some(iter) = objedit::mach::SymtabIter::from_mach(bytes, &mach) {
-                    for nlist_info in iter {
-                        let nlist_info = nlist_info.unwrap();
-                        let nlist = match mode {
-                            Mode::AllHidden => make_nlist_hidden(&nlist_info.nlist),
-                            Mode::AllDefault => make_nlist_default(&nlist_info.nlist),
+                    for (ref name, ref nlist) in
+                        iter.collect::<objedit::error::Result<Vec<_>>>().unwrap()
+                    {
+                        let new_nlist = match mode {
+                            Mode::AllHidden => make_nlist_hidden(nlist),
+                            Mode::AllDefault => make_nlist_default(nlist),
                             Mode::Regex {
                                 ref hidden,
                                 ref default,
                             } => {
-                                if default.is_some()
-                                    && default.as_ref().unwrap().is_match(nlist_info.name)
-                                {
-                                    make_nlist_default(&nlist_info.nlist)
+                                if default.is_some() && default.as_ref().unwrap().is_match(name) {
+                                    make_nlist_default(nlist)
                                 } else if hidden.is_some()
-                                    && hidden.as_ref().unwrap().is_match(nlist_info.name)
+                                    && hidden.as_ref().unwrap().is_match(name)
                                 {
-                                    make_nlist_hidden(&nlist_info.nlist)
+                                    make_nlist_hidden(nlist)
                                 } else {
                                     None
                                 }
                             }
                         };
-                        if nlist.is_some() {
-                            patches.push(
-                                objedit::patch::Patch::new(
-                                    &nlist_info.nlist_location,
-                                    nlist.unwrap(),
-                                )
-                                .unwrap(),
-                            );
+                        if new_nlist.is_some() {
+                            patches.push(nlist.patch_with(new_nlist.unwrap()).unwrap());
                         }
                     }
                 }

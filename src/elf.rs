@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::patch::Location;
+use crate::patch::{Location, Rooted};
 use goblin::container::{Container, Ctx, Endian};
 use goblin::elf::section_header::{SHT_DYNSYM, SHT_SYMTAB};
 use goblin::elf::sym::Sym;
@@ -75,15 +75,8 @@ impl<'a> SymtabIter<'a> {
     }
 }
 
-pub struct SymInfo<'a> {
-    pub name: &'a str,
-    pub name_location: Location,
-    pub sym: Sym,
-    pub sym_location: Location,
-}
-
 impl<'a> std::iter::Iterator for SymtabIter<'a> {
-    type Item = Result<SymInfo<'a>>;
+    type Item = Result<(Rooted<&'a str>, Rooted<Sym>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.count {
@@ -105,12 +98,10 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
                     size: name.len(),
                     ctx: self.ctx,
                 };
-                Ok(SymInfo {
-                    name: name,
-                    name_location: name_location,
-                    sym: sym,
-                    sym_location: sym_location,
-                })
+                Ok((
+                    Rooted::new(name_location, name),
+                    Rooted::new(sym_location, sym),
+                ))
             })())
         }
     }

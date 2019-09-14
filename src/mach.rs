@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::patch::Location;
+use crate::patch::{Location, Rooted};
 use goblin::container::{Container, Ctx, Endian};
 use goblin::mach::load_command::{CommandVariant, SymtabCommand};
 use goblin::mach::symbols::Nlist;
@@ -53,15 +53,8 @@ impl<'a> SymtabIter<'a> {
     }
 }
 
-pub struct NlistInfo<'a> {
-    pub name: &'a str,
-    pub name_location: Location,
-    pub nlist: Nlist,
-    pub nlist_location: Location,
-}
-
 impl<'a> std::iter::Iterator for SymtabIter<'a> {
-    type Item = Result<NlistInfo<'a>>;
+    type Item = Result<(Rooted<&'a str>, Rooted<Nlist>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.count {
@@ -84,12 +77,10 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
                     size: name.len(),
                     ctx: self.ctx,
                 };
-                Ok(NlistInfo {
-                    name: name,
-                    name_location: name_location,
-                    nlist: nlist,
-                    nlist_location: nlist_location,
-                })
+                Ok((
+                    Rooted::new(name_location, name),
+                    Rooted::new(nlist_location, nlist),
+                ))
             })())
         }
     }
