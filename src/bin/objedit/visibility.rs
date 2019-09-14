@@ -140,13 +140,18 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                     ref hidden,
                                     ref default,
                                 } => {
-                                    if default.is_some() && default.as_ref().unwrap().is_match(name)
-                                    {
-                                        Some(make_sym_default(sym))
-                                    } else if hidden.is_some()
-                                        && hidden.as_ref().unwrap().is_match(name)
-                                    {
-                                        Some(make_sym_hidden(sym))
+                                    if let Some(name) = name {
+                                        if default.is_some()
+                                            && default.as_ref().unwrap().is_match(name)
+                                        {
+                                            Some(make_sym_default(sym))
+                                        } else if hidden.is_some()
+                                            && hidden.as_ref().unwrap().is_match(name)
+                                        {
+                                            Some(make_sym_hidden(sym))
+                                        } else {
+                                            None
+                                        }
                                     } else {
                                         None
                                     }
@@ -170,13 +175,18 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                     ref hidden,
                                     ref default,
                                 } => {
-                                    if default.is_some() && default.as_ref().unwrap().is_match(name)
-                                    {
-                                        make_nlist_default(nlist)
-                                    } else if hidden.is_some()
-                                        && hidden.as_ref().unwrap().is_match(name)
-                                    {
-                                        make_nlist_hidden(nlist)
+                                    if let Some(name) = name {
+                                        if default.is_some()
+                                            && default.as_ref().unwrap().is_match(name)
+                                        {
+                                            make_nlist_default(nlist)
+                                        } else if hidden.is_some()
+                                            && hidden.as_ref().unwrap().is_match(name)
+                                        {
+                                            make_nlist_hidden(nlist)
+                                        } else {
+                                            None
+                                        }
                                     } else {
                                         None
                                     }

@@ -76,7 +76,7 @@ impl<'a> SymtabIter<'a> {
 }
 
 impl<'a> std::iter::Iterator for SymtabIter<'a> {
-    type Item = Result<(Rooted<&'a str>, Rooted<Sym>)>;
+    type Item = Result<(Option<Rooted<&'a str>>, Rooted<Sym>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.count {
@@ -85,23 +85,27 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
             Some((|| {
                 let sym_offset = self.offset + self.index * self.step;
                 self.index += 1;
-                let (sym, sym_size) = Sym::try_from_ctx(&self.bytes[sym_offset..], self.ctx)?;
-                let sym_location = Location {
-                    offset: sym_offset,
-                    size: sym_size,
-                    ctx: self.ctx,
+                let sym = {
+                    let (sym, sym_size) = Sym::try_from_ctx(&self.bytes[sym_offset..], self.ctx)?;
+                    let location = Location {
+                        offset: sym_offset,
+                        size: sym_size,
+                        ctx: self.ctx,
+                    };
+                    Rooted::new(location, sym)
                 };
-                let name_offset = sym.st_name;
-                let name: &str = self.bytes.pread(name_offset)?;
-                let name_location = Location {
-                    offset: name_offset,
-                    size: name.len(),
-                    ctx: self.ctx,
+                let name = if sym.st_name != 0 {
+                    let name: &str = self.bytes.pread(sym.st_name)?;
+                    let location = Location {
+                        offset: sym.st_name,
+                        size: name.len(),
+                        ctx: self.ctx,
+                    };
+                    Some(Rooted::new(location, name))
+                } else {
+                    None
                 };
-                Ok((
-                    Rooted::new(name_location, name),
-                    Rooted::new(sym_location, sym),
-                ))
+                Ok((name, sym))
             })())
         }
     }

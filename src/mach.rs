@@ -54,7 +54,7 @@ impl<'a> SymtabIter<'a> {
 }
 
 impl<'a> std::iter::Iterator for SymtabIter<'a> {
-    type Item = Result<(Rooted<&'a str>, Rooted<Nlist>)>;
+    type Item = Result<(Option<Rooted<&'a str>>, Rooted<Nlist>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.count {
@@ -63,24 +63,29 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
             Some((|| {
                 let nlist_offset = self.symoff + self.index * Nlist::size_with(&self.ctx);
                 self.index += 1;
-                let (nlist, nlist_size) =
-                    Nlist::try_from_ctx(&self.bytes[nlist_offset..], self.ctx)?;
-                let nlist_location = Location {
-                    offset: nlist_offset,
-                    size: nlist_size,
-                    ctx: self.ctx,
+                let nlist = {
+                    let (nlist, nlist_size) =
+                        Nlist::try_from_ctx(&self.bytes[nlist_offset..], self.ctx)?;
+                    let location = Location {
+                        offset: nlist_offset,
+                        size: nlist_size,
+                        ctx: self.ctx,
+                    };
+                    Rooted::new(location, nlist)
                 };
-                let name_offset = self.stroff + nlist.n_strx as usize;
-                let name: &str = self.bytes.pread(name_offset)?;
-                let name_location = Location {
-                    offset: name_offset,
-                    size: name.len(),
-                    ctx: self.ctx,
+                let name = if nlist.n_strx != 0 {
+                    let offset = self.stroff + nlist.n_strx as usize;
+                    let name: &str = self.bytes.pread(offset)?;
+                    let location = Location {
+                        offset: offset,
+                        size: name.len(),
+                        ctx: self.ctx,
+                    };
+                    Some(Rooted::new(location, name))
+                } else {
+                    None
                 };
-                Ok((
-                    Rooted::new(name_location, name),
-                    Rooted::new(nlist_location, nlist),
-                ))
+                Ok((name, nlist))
             })())
         }
     }
