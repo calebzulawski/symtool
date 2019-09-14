@@ -1,6 +1,13 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 use goblin::container::Ctx;
 use scroll::ctx::{SizeWith, TryIntoCtx};
+
+#[derive(Debug)]
+pub struct Location {
+    pub(crate) offset: usize,
+    pub(crate) size: usize,
+    pub(crate) ctx: Ctx,
+}
 
 #[derive(Debug)]
 pub struct Patch {
@@ -9,24 +16,31 @@ pub struct Patch {
 }
 
 impl Patch {
-    pub fn new<T>(offset: usize, patch: T, ctx: &Ctx) -> Result<Self>
+    pub fn new<T>(location: &Location, data: T) -> Result<Self>
     where
         T: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error, Size = usize>
             + SizeWith<Ctx, Units = usize>,
     {
-        let mut data = vec![0u8; T::size_with(&ctx)];
-        patch.try_into_ctx(&mut data, *ctx)?;
+        let size = T::size_with(&location.ctx);
+        if size > location.size {
+            return Err(Error::PatchTooBig);
+        }
+        let mut buf = vec![0u8; size];
+        data.try_into_ctx(&mut buf, location.ctx)?;
         Ok(Self {
-            offset: offset,
-            data: data,
+            offset: location.offset,
+            data: buf,
         })
     }
 
-    pub fn from_str(offset: usize, patch: &str) -> Self {
-        Self {
-            offset: offset,
-            data: patch.bytes().collect(),
+    pub fn from_str(location: &Location, patch: &str) -> Result<Self> {
+        if patch.len() > location.size {
+            return Err(Error::PatchTooBig);
         }
+        Ok(Self {
+            offset: location.offset,
+            data: patch.bytes().collect(),
+        })
     }
 
     pub fn apply(&self, data: &mut [u8]) {

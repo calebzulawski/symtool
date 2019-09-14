@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::patch::Patch;
+use crate::patch::{Location, Patch};
 use goblin::container::{Container, Ctx, Endian};
 use goblin::elf::section_header;
 use goblin::elf::sym::Sym;
@@ -67,16 +67,26 @@ impl ElfTransform {
                 };
                 for index in 0..count {
                     let sym_offset = (header.sh_offset + index * header.sh_entsize) as usize;
-                    let (sym, _) = Sym::try_from_ctx(&bytes[sym_offset..], ctx)?;
+                    let (sym, sym_size) = Sym::try_from_ctx(&bytes[sym_offset..], ctx)?;
+                    let sym_location = Location {
+                        offset: sym_offset,
+                        size: sym_size,
+                        ctx: ctx,
+                    };
                     let name_offset = sym.st_name;
-                    let name = bytes.pread(name_offset)?;
+                    let name: &str = bytes.pread(name_offset)?;
+                    let name_location = Location {
+                        offset: name_offset,
+                        size: name.len(),
+                        ctx: ctx,
+                    };
                     for f in &mut self.symtab {
                         let (new_name, new_sym) = f(name, &sym);
                         if let Some(new_sym) = new_sym {
-                            patches.push(Patch::new(sym_offset, new_sym, &ctx)?);
+                            patches.push(Patch::new(&sym_location, new_sym)?);
                         }
                         if let Some(new_name) = new_name {
-                            patches.push(Patch::from_str(name_offset, &new_name));
+                            patches.push(Patch::from_str(&name_location, &new_name)?);
                         }
                     }
                 }

@@ -12,6 +12,7 @@ pub enum Error {
     },
     UnknownObject,
     FatBinaryUnsupported,
+    PatchTooBig,
 }
 
 impl std::fmt::Display for Error {
@@ -26,6 +27,7 @@ impl std::fmt::Display for Error {
                 "Replacement string (\"{}\") must be the same size or smaller than the original (\"{}\")", replacement, original)},
             Self::UnknownObject => write!(f, "Unknown object type"),
             Self::FatBinaryUnsupported => write!(f, "Fat MachO binaries are not yet supported"),
+            Self::PatchTooBig => write!(f, "Patched data too big for original location"),
         }
     }
 }

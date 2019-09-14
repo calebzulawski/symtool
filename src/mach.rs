@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::patch::Patch;
+use crate::patch::{Location, Patch};
 use goblin::container::{Container, Ctx, Endian};
 use goblin::mach::load_command::CommandVariant;
 use goblin::mach::symbols::Nlist;
@@ -63,16 +63,26 @@ impl MachTransform {
                 for index in 0..(symtab_command.nsyms as usize) {
                     let nlist_offset =
                         symtab_command.symoff as usize + index * Nlist::size_with(&ctx);
-                    let (nlist, _) = Nlist::try_from_ctx(&bytes[nlist_offset..], ctx)?;
+                    let (nlist, nlist_size) = Nlist::try_from_ctx(&bytes[nlist_offset..], ctx)?;
+                    let nlist_location = Location {
+                        offset: nlist_offset,
+                        size: nlist_size,
+                        ctx: ctx,
+                    };
                     let name_offset = symtab_command.stroff as usize + nlist.n_strx as usize;
-                    let name = bytes.pread(name_offset)?;
+                    let name: &str = bytes.pread(name_offset)?;
+                    let name_location = Location {
+                        offset: name_offset,
+                        size: name.len(),
+                        ctx: ctx,
+                    };
                     for f in &mut self.symtab {
                         let (new_name, new_nlist) = f(name, &nlist);
                         if let Some(new_nlist) = new_nlist {
-                            patches.push(Patch::new(nlist_offset, new_nlist, &ctx)?);
+                            patches.push(Patch::new(&nlist_location, new_nlist)?);
                         }
                         if let Some(new_name) = new_name {
-                            patches.push(Patch::from_str(name_offset, &new_name));
+                            patches.push(Patch::from_str(&name_location, &new_name)?);
                         }
                     }
                 }
