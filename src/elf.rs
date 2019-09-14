@@ -1,9 +1,9 @@
 use crate::error::{Error, Result};
 use crate::patch::{Location, Patch};
 use goblin::container::{Container, Ctx, Endian};
-use goblin::elf::section_header;
+use goblin::elf::section_header::{SHT_DYNSYM, SHT_SYMTAB};
 use goblin::elf::sym::Sym;
-use goblin::elf::Elf;
+use goblin::elf::{Elf, SectionHeader};
 use scroll::ctx::TryFromCtx;
 use scroll::Pread;
 
@@ -53,45 +53,119 @@ impl ElfTransform {
     }
 
     fn apply_symtab(&mut self, bytes: &[u8], elf: &Elf) -> Result<Vec<Patch>> {
-        let ctx = context_from_elf(elf);
+        if self.symtab.is_empty() {
+            return Ok(Vec::new());
+        }
         let mut patches = Vec::new();
-        for header in &elf.section_headers {
-            if header.sh_type as u32 == section_header::SHT_SYMTAB {
-                if (header.sh_entsize as usize) < Sym::size(ctx.container) {
-                    return Err(Error::Malformed("sh_entsize too small".to_string()));
-                };
-                let count = if header.sh_entsize == 0 {
-                    0
-                } else {
-                    header.sh_size / header.sh_entsize
-                };
-                for index in 0..count {
-                    let sym_offset = (header.sh_offset + index * header.sh_entsize) as usize;
-                    let (sym, sym_size) = Sym::try_from_ctx(&bytes[sym_offset..], ctx)?;
-                    let sym_location = Location {
-                        offset: sym_offset,
-                        size: sym_size,
-                        ctx: ctx,
-                    };
-                    let name_offset = sym.st_name;
-                    let name: &str = bytes.pread(name_offset)?;
-                    let name_location = Location {
-                        offset: name_offset,
-                        size: name.len(),
-                        ctx: ctx,
-                    };
-                    for f in &mut self.symtab {
-                        let (new_name, new_sym) = f(name, &sym);
-                        if let Some(new_sym) = new_sym {
-                            patches.push(Patch::new(&sym_location, new_sym)?);
-                        }
-                        if let Some(new_name) = new_name {
-                            patches.push(Patch::from_str(&name_location, &new_name)?);
-                        }
+        if let Some(iter) = SymtabIter::symtab_from_elf(bytes, elf)? {
+            for sym_info in iter {
+                let sym_info = sym_info?;
+                for f in &mut self.symtab {
+                    let (new_name, new_sym) = f(sym_info.name, &sym_info.sym);
+                    if let Some(new_sym) = new_sym {
+                        patches.push(Patch::new(&sym_info.sym_location, new_sym)?);
+                    }
+                    if let Some(new_name) = new_name {
+                        patches.push(Patch::from_str(&sym_info.name_location, &new_name)?);
                     }
                 }
             }
         }
         Ok(patches)
+    }
+}
+
+pub struct SymtabIter<'a> {
+    bytes: &'a [u8],
+    ctx: Ctx,
+    offset: usize,
+    step: usize,
+    count: usize,
+    index: usize,
+}
+
+impl<'a> SymtabIter<'a> {
+    fn from_section_header(bytes: &'a [u8], header: &SectionHeader, ctx: Ctx) -> Result<Self> {
+        if header.sh_type != SHT_SYMTAB && header.sh_type != SHT_DYNSYM {
+            return Err(Error::WrongSectionHeader(
+                "symtab requires sh_type equal to SHT_SYMTAB or SHT_DYNSYM".to_string(),
+            ));
+        }
+        if (header.sh_entsize as usize) < Sym::size(ctx.container) {
+            return Err(Error::Malformed("sh_entsize too small".to_string()));
+        };
+        Ok(Self {
+            bytes: bytes,
+            ctx: ctx,
+            offset: header.sh_offset as usize,
+            step: header.sh_entsize as usize,
+            count: if header.sh_entsize == 0 {
+                0
+            } else {
+                header.sh_size / header.sh_entsize
+            } as usize,
+            index: 0,
+        })
+    }
+
+    fn symtab_from_elf(bytes: &'a [u8], elf: &Elf) -> Result<Option<Self>> {
+        let ctx = context_from_elf(elf);
+        for header in &elf.section_headers {
+            if header.sh_type == SHT_SYMTAB {
+                return Some(Self::from_section_header(bytes, header, ctx)).transpose();
+            }
+        }
+        Ok(None)
+    }
+
+    fn dynsym_from_elf(bytes: &'a [u8], elf: &Elf) -> Result<Option<Self>> {
+        let ctx = context_from_elf(elf);
+        for header in &elf.section_headers {
+            if header.sh_type == SHT_DYNSYM {
+                return Some(Self::from_section_header(bytes, header, ctx)).transpose();
+            }
+        }
+        Ok(None)
+    }
+}
+
+pub struct SymInfo<'a> {
+    name: &'a str,
+    name_location: Location,
+    sym: Sym,
+    sym_location: Location,
+}
+
+impl<'a> std::iter::Iterator for SymtabIter<'a> {
+    type Item = Result<SymInfo<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.count {
+            None
+        } else {
+            Some((|| {
+                let sym_offset = self.offset + self.index * self.step;
+                self.index += 1;
+                let (sym, sym_size) = Sym::try_from_ctx(&self.bytes[sym_offset..], self.ctx)?;
+                let sym_location = Location {
+                    offset: sym_offset,
+                    size: sym_size,
+                    ctx: self.ctx,
+                };
+                let name_offset = sym.st_name;
+                let name: &str = self.bytes.pread(name_offset)?;
+                let name_location = Location {
+                    offset: name_offset,
+                    size: name.len(),
+                    ctx: self.ctx,
+                };
+                Ok(SymInfo {
+                    name: name,
+                    name_location: name_location,
+                    sym: sym,
+                    sym_location: sym_location,
+                })
+            })())
+        }
     }
 }
