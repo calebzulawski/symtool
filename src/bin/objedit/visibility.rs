@@ -6,33 +6,11 @@ use regex::RegexSet;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("visibility")
         .arg(
-            Arg::with_name("all-hidden")
-                .long("all-hidden")
-                .takes_value(false)
-                .help("Sets all symbols to hidden visibility")
-                .conflicts_with("all-default")
-                .conflicts_with("default")
-                .conflicts_with("hidden")
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("all-default")
-                .long("all-default")
-                .takes_value(false)
-                .help("Sets all symbols to default visibility")
-                .conflicts_with("all-hidden")
-                .conflicts_with("default")
-                .conflicts_with("hidden")
-                .required(true),
-        )
-        .arg(
             Arg::with_name("hidden")
                 .long("hidden")
                 .takes_value(true)
                 .value_name("PATTERN")
                 .help("Sets all symbols with names matching regex PATTERN to hidden visibility")
-                .conflicts_with("all-hidden")
-                .conflicts_with("all-default")
                 .required_unless("default"),
         )
         .arg(
@@ -41,8 +19,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .value_name("PATTERN")
                 .help("Sets all symbols with names matching regex PATTERN to default visibility")
-                .conflicts_with("all-hidden")
-                .conflicts_with("all-default")
                 .required_unless("hidden"),
         )
         .arg(
@@ -107,34 +83,15 @@ fn make_nlist_default(s: &Nlist, name: &str, verbosity: u64) -> Option<Nlist> {
     }
 }
 
-enum Mode {
-    AllHidden,
-    AllDefault,
-    Regex {
-        hidden: Option<RegexSet>,
-        default: Option<RegexSet>,
-    },
-}
-
 pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::error::Error>> {
-    let mode = if matches.is_present("all-hidden") {
-        Mode::AllHidden
-    } else if matches.is_present("all-default") {
-        Mode::AllDefault
-    } else {
-        let hidden = matches
-            .values_of("hidden")
-            .map(|regexes| RegexSet::new(regexes))
-            .transpose()?;
-        let default = matches
-            .values_of("default")
-            .map(|regexes| RegexSet::new(regexes))
-            .transpose()?;
-        Mode::Regex {
-            hidden: hidden,
-            default: default,
-        }
-    };
+    let hidden_regex = matches
+        .values_of("hidden")
+        .map(|regexes| RegexSet::new(regexes))
+        .transpose()?;
+    let default_regex = matches
+        .values_of("default")
+        .map(|regexes| RegexSet::new(regexes))
+        .transpose()?;
 
     let transform: Box<objedit::object::ObjectTransform<crate::error::Error>> =
         Box::new(move |bytes, object| {
@@ -146,33 +103,20 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
-                            let new_sym = match mode {
-                                Mode::AllHidden => {
-                                    Some(make_sym_hidden(sym, debug_name, verbosity))
-                                }
-                                Mode::AllDefault => {
+                            let new_sym = if let Some(name) = name {
+                                if default_regex.is_some()
+                                    && default_regex.as_ref().unwrap().is_match(name)
+                                {
                                     Some(make_sym_default(sym, debug_name, verbosity))
+                                } else if hidden_regex.is_some()
+                                    && hidden_regex.as_ref().unwrap().is_match(name)
+                                {
+                                    Some(make_sym_hidden(sym, debug_name, verbosity))
+                                } else {
+                                    None
                                 }
-                                Mode::Regex {
-                                    ref hidden,
-                                    ref default,
-                                } => {
-                                    if let Some(name) = name {
-                                        if default.is_some()
-                                            && default.as_ref().unwrap().is_match(name)
-                                        {
-                                            Some(make_sym_default(sym, debug_name, verbosity))
-                                        } else if hidden.is_some()
-                                            && hidden.as_ref().unwrap().is_match(name)
-                                        {
-                                            Some(make_sym_hidden(sym, debug_name, verbosity))
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                }
+                            } else {
+                                None
                             };
                             if new_sym.is_some() {
                                 patches.push(sym.patch_with(new_sym.unwrap())?);
@@ -186,31 +130,20 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
-                            let new_nlist = match mode {
-                                Mode::AllHidden => make_nlist_hidden(nlist, debug_name, verbosity),
-                                Mode::AllDefault => {
+                            let new_nlist = if let Some(name) = name {
+                                if default_regex.is_some()
+                                    && default_regex.as_ref().unwrap().is_match(name)
+                                {
                                     make_nlist_default(nlist, debug_name, verbosity)
+                                } else if hidden_regex.is_some()
+                                    && hidden_regex.as_ref().unwrap().is_match(name)
+                                {
+                                    make_nlist_hidden(nlist, debug_name, verbosity)
+                                } else {
+                                    None
                                 }
-                                Mode::Regex {
-                                    ref hidden,
-                                    ref default,
-                                } => {
-                                    if let Some(name) = name {
-                                        if default.is_some()
-                                            && default.as_ref().unwrap().is_match(name)
-                                        {
-                                            make_nlist_default(nlist, debug_name, verbosity)
-                                        } else if hidden.is_some()
-                                            && hidden.as_ref().unwrap().is_match(name)
-                                        {
-                                            make_nlist_hidden(nlist, debug_name, verbosity)
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                }
+                            } else {
+                                None
                             };
                             if new_nlist.is_some() {
                                 patches.push(nlist.patch_with(new_nlist.unwrap())?);
