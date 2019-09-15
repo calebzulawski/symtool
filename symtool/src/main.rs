@@ -1,25 +1,45 @@
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{
+    app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg, ArgMatches,
+};
 use goblin::elf::sym::{Sym, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
+use hashbrown::HashMap;
 use regex::RegexSet;
+use std::io::Write;
+use std::ops::Deref;
 
-pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("visibility")
+mod error;
+
+fn main() {
+    let matches = app_from_crate!()
+        .arg(
+            Arg::with_name("verbose")
+                .long("verbose")
+                .short("v")
+                .multiple(true)
+                .help("Increase verbosity level"),
+        )
+        .arg(
+            Arg::with_name("rename")
+                .long("rename")
+                .number_of_values(2)
+                .multiple(true)
+                .value_names(&["OLD-NAME", "NEW-NAME"])
+                .help("Renames symbols named OLD-NAME to NEW-NAME"),
+        )
         .arg(
             Arg::with_name("hidden")
                 .long("hidden")
                 .takes_value(true)
                 .value_name("PATTERN")
-                .help("Sets all symbols with names matching regex PATTERN to hidden visibility")
-                .required_unless("default"),
+                .help("Sets all symbols with names matching regex PATTERN to hidden visibility"),
         )
         .arg(
             Arg::with_name("default")
                 .long("default")
                 .takes_value(true)
                 .value_name("PATTERN")
-                .help("Sets all symbols with names matching regex PATTERN to default visibility")
-                .required_unless("hidden"),
+                .help("Sets all symbols with names matching regex PATTERN to default visibility"),
         )
         .arg(
             Arg::with_name("INPUT")
@@ -33,6 +53,9 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(true)
                 .index(2),
         )
+        .get_matches();
+
+    run(&matches).unwrap_or_else(|e| writeln!(std::io::stderr(), "Error: {}", e).unwrap());
 }
 
 fn make_sym_hidden(s: &Sym, name: &str, verbosity: u64) -> Sym {
@@ -83,7 +106,8 @@ fn make_nlist_default(s: &Nlist, name: &str, verbosity: u64) -> Option<Nlist> {
     }
 }
 
-pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    let verbosity = matches.occurrences_of("verbose");
     let hidden_regex = matches
         .values_of("hidden")
         .map(|regexes| RegexSet::new(regexes))
@@ -92,6 +116,14 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
         .values_of("default")
         .map(|regexes| RegexSet::new(regexes))
         .transpose()?;
+    let mut rename_map = HashMap::new();
+    if let Some(rename) = matches.values_of("rename") {
+        let original = rename.clone().step_by(2);
+        let renamed = rename.skip(1).step_by(2);
+        for (old, new) in original.zip(renamed) {
+            rename_map.insert(old.to_string(), new.to_string());
+        }
+    }
 
     let transform: Box<objedit::object::ObjectTransform<crate::error::Error>> =
         Box::new(move |bytes, object| {
@@ -103,8 +135,9 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
-                            let new_sym = if let Some(name) = name {
-                                if default_regex.is_some()
+                            let (new_name, new_sym) = if let Some(name) = name {
+                                let new_name = rename_map.get(*name.deref());
+                                let new_sym = if default_regex.is_some()
                                     && default_regex.as_ref().unwrap().is_match(name)
                                 {
                                     Some(make_sym_default(sym, debug_name, verbosity))
@@ -114,10 +147,18 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                     Some(make_sym_hidden(sym, debug_name, verbosity))
                                 } else {
                                     None
-                                }
+                                };
+                                (new_name, new_sym)
                             } else {
-                                None
+                                (None, None)
                             };
+                            if name.is_some() && new_name.is_some() {
+                                patches.push(
+                                    name.as_ref()
+                                        .unwrap()
+                                        .patch_with_bytes(new_name.unwrap().as_bytes())?,
+                                );
+                            }
                             if new_sym.is_some() {
                                 patches.push(sym.patch_with(new_sym.unwrap())?);
                             }
@@ -130,8 +171,9 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
-                            let new_nlist = if let Some(name) = name {
-                                if default_regex.is_some()
+                            let (new_name, new_nlist) = if let Some(name) = name {
+                                let new_name = rename_map.get(*name.deref());
+                                let new_nlist = if default_regex.is_some()
                                     && default_regex.as_ref().unwrap().is_match(name)
                                 {
                                     make_nlist_default(nlist, debug_name, verbosity)
@@ -141,10 +183,18 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                     make_nlist_hidden(nlist, debug_name, verbosity)
                                 } else {
                                     None
-                                }
+                                };
+                                (new_name, new_nlist)
                             } else {
-                                None
+                                (None, None)
                             };
+                            if name.is_some() && new_name.is_some() {
+                                patches.push(
+                                    name.as_ref()
+                                        .unwrap()
+                                        .patch_with_bytes(new_name.unwrap().as_bytes())?,
+                                );
+                            }
                             if new_nlist.is_some() {
                                 patches.push(nlist.patch_with(new_nlist.unwrap())?);
                             }

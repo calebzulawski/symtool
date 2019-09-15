@@ -1,10 +1,12 @@
 [package]
-name = "objedit"
+name = "symtool"
 version = "0.1.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+objedit = { version = "0.1", path = "../" }
+clap = "2.33"
+regex = "1"
 goblin = "0.0.24"
-scroll = "0.9.2"
-ar = "0.8.0"
+hashbrown = "0.6"
