@@ -59,24 +59,33 @@ pub fn subcommand() -> App<'static, 'static> {
         )
 }
 
-fn make_sym_hidden(s: &Sym) -> Sym {
+fn make_sym_hidden(s: &Sym, name: &str, verbosity: u64) -> Sym {
+    if verbosity > 0 {
+        println!("Set visibility hidden: {}", name);
+    }
     Sym {
         st_other: (s.st_other & 0xfc) | STV_HIDDEN,
         ..s.clone()
     }
 }
 
-fn make_sym_default(s: &Sym) -> Sym {
+fn make_sym_default(s: &Sym, name: &str, verbosity: u64) -> Sym {
+    if verbosity > 0 {
+        println!("Set visibility default: {}", name);
+    }
     Sym {
         st_other: (s.st_other & 0xfc) | STV_DEFAULT,
         ..s.clone()
     }
 }
 
-fn make_nlist_hidden(s: &Nlist) -> Option<Nlist> {
+fn make_nlist_hidden(s: &Nlist, name: &str, verbosity: u64) -> Option<Nlist> {
     if s.n_type & N_STAB != 0u8 {
         None
     } else {
+        if verbosity > 0 {
+            println!("Set visibility hidden: {}", name);
+        }
         Some(Nlist {
             n_type: s.n_type | N_PEXT,
             ..s.clone()
@@ -84,10 +93,13 @@ fn make_nlist_hidden(s: &Nlist) -> Option<Nlist> {
     }
 }
 
-fn make_nlist_default(s: &Nlist) -> Option<Nlist> {
+fn make_nlist_default(s: &Nlist, name: &str, verbosity: u64) -> Option<Nlist> {
     if s.n_type & N_STAB != 0u8 {
         None
     } else {
+        if verbosity > 0 {
+            println!("Set visibility default: {}", name);
+        }
         Some(Nlist {
             n_type: s.n_type & !N_PEXT,
             ..s.clone()
@@ -133,9 +145,14 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                         for (ref name, ref sym) in
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
+                            let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let new_sym = match mode {
-                                Mode::AllHidden => Some(make_sym_hidden(sym)),
-                                Mode::AllDefault => Some(make_sym_default(sym)),
+                                Mode::AllHidden => {
+                                    Some(make_sym_hidden(sym, debug_name, verbosity))
+                                }
+                                Mode::AllDefault => {
+                                    Some(make_sym_default(sym, debug_name, verbosity))
+                                }
                                 Mode::Regex {
                                     ref hidden,
                                     ref default,
@@ -144,11 +161,11 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                         if default.is_some()
                                             && default.as_ref().unwrap().is_match(name)
                                         {
-                                            Some(make_sym_default(sym))
+                                            Some(make_sym_default(sym, debug_name, verbosity))
                                         } else if hidden.is_some()
                                             && hidden.as_ref().unwrap().is_match(name)
                                         {
-                                            Some(make_sym_hidden(sym))
+                                            Some(make_sym_hidden(sym, debug_name, verbosity))
                                         } else {
                                             None
                                         }
@@ -168,9 +185,12 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                         for (ref name, ref nlist) in
                             iter.collect::<objedit::error::Result<Vec<_>>>()?
                         {
+                            let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let new_nlist = match mode {
-                                Mode::AllHidden => make_nlist_hidden(nlist),
-                                Mode::AllDefault => make_nlist_default(nlist),
+                                Mode::AllHidden => make_nlist_hidden(nlist, debug_name, verbosity),
+                                Mode::AllDefault => {
+                                    make_nlist_default(nlist, debug_name, verbosity)
+                                }
                                 Mode::Regex {
                                     ref hidden,
                                     ref default,
@@ -179,11 +199,11 @@ pub fn run(matches: &ArgMatches, verbosity: u64) -> Result<(), Box<dyn std::erro
                                         if default.is_some()
                                             && default.as_ref().unwrap().is_match(name)
                                         {
-                                            make_nlist_default(nlist)
+                                            make_nlist_default(nlist, debug_name, verbosity)
                                         } else if hidden.is_some()
                                             && hidden.as_ref().unwrap().is_match(name)
                                         {
-                                            make_nlist_hidden(nlist)
+                                            make_nlist_hidden(nlist, debug_name, verbosity)
                                         } else {
                                             None
                                         }
