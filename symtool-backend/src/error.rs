@@ -69,7 +69,7 @@ pub enum TransformError<T>
 where
     T: std::error::Error,
 {
-    ObjEdit(Error),
+    SymTool(Error),
     Transform(T),
 }
 
@@ -79,7 +79,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::ObjEdit(e) => write!(f, "{}", e),
+            Self::SymTool(e) => write!(f, "{}", e),
             Self::Transform(e) => write!(f, "{}", e),
         }
     }
@@ -91,7 +91,7 @@ where
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::ObjEdit(e) => Some(e),
+            Self::SymTool(e) => Some(e),
             Self::Transform(e) => e.source(),
         }
     }
@@ -102,7 +102,7 @@ where
     T: std::error::Error,
 {
     fn from(err: Error) -> Self {
-        Self::ObjEdit(err)
+        Self::SymTool(err)
     }
 }
 
@@ -111,7 +111,7 @@ where
     T: std::error::Error,
 {
     fn from(err: goblin::error::Error) -> Self {
-        Self::ObjEdit(Error::Goblin(err))
+        Self::SymTool(Error::Goblin(err))
     }
 }
 
@@ -120,7 +120,7 @@ where
     T: std::error::Error,
 {
     fn from(err: std::io::Error) -> Self {
-        Self::ObjEdit(Error::Io(err))
+        Self::SymTool(Error::Io(err))
     }
 }
 
@@ -129,6 +129,6 @@ where
     T: std::error::Error,
 {
     fn from(err: scroll::Error) -> Self {
-        Self::ObjEdit(Error::Scroll(err))
+        Self::SymTool(Error::Scroll(err))
     }
 }
