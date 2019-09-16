@@ -5,7 +5,7 @@ authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-objedit = { version = "0.1", path = "../" }
+symtool-backend = { version = "0.1", path = "../symtool-backend" }
 clap = "2.33"
 regex = "1"
 goblin = "0.0.24"

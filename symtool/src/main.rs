@@ -8,6 +8,8 @@ use regex::RegexSet;
 use std::io::Write;
 use std::ops::Deref;
 
+use symtool_backend as backend;
+
 mod error;
 
 fn main() {
@@ -125,14 +127,14 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let transform: Box<objedit::object::ObjectTransform<crate::error::Error>> =
+    let transform: Box<backend::object::ObjectTransform<crate::error::Error>> =
         Box::new(move |bytes, object| {
             let mut patches = Vec::new();
             match object {
-                objedit::object::Object::Elf(elf) => {
-                    if let Some(iter) = objedit::elf::SymtabIter::symtab_from_elf(bytes, &elf)? {
+                backend::object::Object::Elf(elf) => {
+                    if let Some(iter) = backend::elf::SymtabIter::symtab_from_elf(bytes, &elf)? {
                         for (ref name, ref sym) in
-                            iter.collect::<objedit::error::Result<Vec<_>>>()?
+                            iter.collect::<backend::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let (new_name, new_sym) = if let Some(name) = name {
@@ -165,10 +167,10 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
-                objedit::object::Object::MachO(mach) => {
-                    if let Some(iter) = objedit::mach::SymtabIter::from_mach(bytes, &mach) {
+                backend::object::Object::MachO(mach) => {
+                    if let Some(iter) = backend::mach::SymtabIter::from_mach(bytes, &mach) {
                         for (ref name, ref nlist) in
-                            iter.collect::<objedit::error::Result<Vec<_>>>()?
+                            iter.collect::<backend::error::Result<Vec<_>>>()?
                         {
                             let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let (new_name, new_nlist) = if let Some(name) = name {
@@ -207,6 +209,6 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut input = std::fs::File::open(matches.value_of("INPUT").unwrap())?;
     let mut output = std::fs::File::create(matches.value_of("OUTPUT").unwrap())?;
-    objedit::object::transform_object(&mut input, &mut output, &transform)?;
+    backend::object::transform_object(&mut input, &mut output, &transform)?;
     Ok(())
 }

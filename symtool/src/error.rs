@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub enum Error {
     Io(std::io::Error),
-    ObjEdit(objedit::error::Error),
+    ObjEdit(symtool_backend::error::Error),
     Regex(regex::Error),
 }
 
@@ -31,8 +31,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<objedit::error::Error> for Error {
-    fn from(err: objedit::error::Error) -> Self {
+impl From<symtool_backend::error::Error> for Error {
+    fn from(err: symtool_backend::error::Error) -> Self {
         Self::ObjEdit(err)
     }
 }
