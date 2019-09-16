@@ -3,6 +3,7 @@ pub enum Error {
     Io(std::io::Error),
     ObjEdit(symtool_backend::error::Error),
     Regex(regex::Error),
+    Message(String),
 }
 
 impl std::fmt::Display for Error {
@@ -11,6 +12,7 @@ impl std::fmt::Display for Error {
             Self::Io(e) => write!(f, "{}", e),
             Self::ObjEdit(e) => write!(f, "{}", e),
             Self::Regex(e) => write!(f, "{}", e),
+            Self::Message(s) => write!(f, "{}", s),
         }
     }
 }
@@ -21,6 +23,7 @@ impl std::error::Error for Error {
             Self::Io(e) => Some(e),
             Self::ObjEdit(e) => Some(e),
             Self::Regex(e) => Some(e),
+            _ => None,
         }
     }
 }

@@ -3,10 +3,15 @@ name = "symtool"
 version = "0.1.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
+description = "symtool edits static symbol tables of MachO and ELF object files and archives"
 
 [dependencies]
 symtool-backend = { version = "0.1", path = "../symtool-backend" }
-clap = "2.33"
+clap = { version = "2.33", default-features = false, features = ["suggestions", "wrap_help"] }
 regex = "1"
 goblin = "0.0.24"
 hashbrown = "0.6"
+
+[profile.release]
+lto = true
+panic = "abort"
