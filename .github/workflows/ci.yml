@@ -35,11 +35,11 @@ jobs:
         override: true
     - name: Build
       uses: actions-rs/cargo@v1
-      working-directory: symtool
       with:
         command: build
+        args: --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
     - name: Test
       uses: actions-rs/cargo@v1
-      working-directory: symtool
       with:
         command: test
+        args: --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
