@@ -42,6 +42,12 @@ jobs:
       with:
         command: test
         args: --release --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
+    - name: Strip
+      if: contains(${{ matrix.build }}, 'linux')
+      run: strip -s symtool/target/release/symtool
+    - name: Strip
+      if: contains(${{ matrix.build }}, 'macos')
+      run: strip symtool/target/release/symtool
     - name: Package tar.gz
       if: contains(${{ matrix.build }}, 'linux') || contains(${{ matrix.build }}, 'macos')
       run: tar -czvf symtool.tar.gz -C symtool/target/release symtool
