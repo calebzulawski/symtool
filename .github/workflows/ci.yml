@@ -34,7 +34,7 @@ jobs:
         target: ${{ matrix.target }}
         override: true
     - name: Debug
-      run: ls
+      run: ls symtool
     - name: Build
       uses: actions-rs/cargo@v1
       with:
