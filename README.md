@@ -35,4 +35,4 @@ Note: symbols are renamed in-place so the new name cannot be longer than the ori
 ## License
 symtool is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
 
-See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.
+See [LICENSE-APACHE](symtool/LICENSE-APACHE) and [LICENSE-MIT](symtool/LICENSE-MIT) for details.
