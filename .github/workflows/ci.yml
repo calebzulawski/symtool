@@ -12,38 +12,18 @@ jobs:
         - macos
         - windows
         include:
-        - build: x86_64-unknown-linux-musl
+        - build: linux-musl
           os: ubuntu-latest
           target: x86_64-unknown-linux-musl
-          cross: false
-        - build: x86_64-unknown-linux-gnu
+        - build: linux-gnu
           os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
-          cross: false
-        - build: arm-unknown-linux-musleabihf
-          os: ubuntu-latest
-          target: arm-unknown-linux-musleabihf
-          cross: true
-        - build: arm-unknown-linux-gnueabihf
-          os: ubuntu-latest
-          target: arm-unknown-linux-gnueabihf
-          cross: true
-        - build: aarch64-unknown-linux-musl
-          os: ubuntu-latest
-          target: aarch64-unknown-linux-musl
-          cross: true
-        - build: aarch64-unknown-linux-gnu
-          os: ubuntu-latest
-          target: aarch64-unknown-linux-gnu
-          cross: true
-        - build: x86_64-apple-darwin
+        - build: macos
           os: macOS-10.14
           target: x86_64-apple-darwin
-          cross: false
-        - build: x86_64-pc-windows-msvc
+        - build: windows
           os: windows-2019
           target: x86_64-pc-windows-msvc
-          cross: false
     steps:
     - name: Checkout repository
       uses: actions/checkout@v1
@@ -58,10 +38,8 @@ jobs:
       with:
         command: build
         args: --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
-        cross: ${{ matrix.cross }}
     - name: Test
       uses: actions-rs/cargo@v1
       with:
         command: test
         args: --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
-        cross: ${{ matrix.cross }}
