@@ -32,12 +32,7 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }}
         override: true
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
-    - name: Test
+    - name: Build and test
       uses: actions-rs/cargo@v1
       with:
         command: test
@@ -50,20 +45,20 @@ jobs:
       run: strip symtool/target/${{ matrix.target }}/release/symtool
     - name: Package tar.gz
       if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
-      run: tar -czvf symtool.tar.gz -C symtool/target/${{ matrix.target }}/release/ symtool
+      run: tar -czvf symtool-${{ matrix.build }}.tar.gz -C symtool/target/${{ matrix.target }}/release/ symtool
     - name: Package zip
       if: contains(matrix.build, 'windows')
-      run: Compress-Archive symtool/target/${{ matrix.target }}/release/symtool.exe symtool.zip
+      run: Compress-Archive symtool/target/${{ matrix.target }}/release/symtool.exe symtool-${{ matrix.build }}.zip
       shell: powershell
     - name: Upload tar.gz
       if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
       uses: actions/upload-artifact@master
       with:
         name: symtool-${{ matrix.build }}.tar.gz
-        path: symtool.tar.gz
+        path: symtool-${{ matrix.build }}.tar.gz
     - name: Upload zip
       if: contains(matrix.build, 'windows')
       uses: actions/upload-artifact@master
       with:
         name: symtool-${{ matrix.build }}.zip
-        path: symtool.zip
+        path: symtool-${{ matrix.build }}.zip
