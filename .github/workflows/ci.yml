@@ -33,6 +33,8 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }}
         override: true
+    - name: Debug
+      run: ls
     - name: Build
       uses: actions-rs/cargo@v1
       with:
