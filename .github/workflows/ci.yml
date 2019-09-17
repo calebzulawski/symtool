@@ -33,15 +33,13 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }}
         override: true
-    - name: Debug
-      run: ls /home/runner/work/symtool/symtool
     - name: Build
       uses: actions-rs/cargo@v1
+      working-directory: symtool
       with:
         command: build
-        arguments: --manifest-path=symtool/Cargo.toml
     - name: Test
       uses: actions-rs/cargo@v1
+      working-directory: symtool
       with:
         command: test
-        arguments: --manifest-path=symtool/Cargo.toml
