@@ -43,25 +43,25 @@ jobs:
         command: test
         args: --release --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
     - name: Strip
-      if: contains(${{ matrix.build }}, 'linux')
+      if: contains(matrix.build, 'linux')
       run: strip -s symtool/target/release/symtool
     - name: Strip
-      if: contains(${{ matrix.build }}, 'macos')
+      if: contains(matrix.build, 'macos')
       run: strip symtool/target/release/symtool
     - name: Package tar.gz
-      if: contains(${{ matrix.build }}, 'linux') || contains(${{ matrix.build }}, 'macos')
+      if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
       run: tar -czvf symtool.tar.gz -C symtool/target/release symtool
     - name: Package zip
-      if: contains(${{ matrix.build }}, 'windows')
+      if: contains(matrix.build, 'windows')
       run: Compress-Archive symtool/target/release/symtool.exe symtool.zip
     - name: Upload tar.gz
-      if: contains(${{ matrix.build }}, 'linux') || contains(${{ matrix.build }}, 'macos')
+      if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
       uses: actions/upload-artifact@master
       with:
         name: symtool-${{ matrix.build }}.tar.gz
         path: symtool.tar.gz
     - name: Upload zip
-      if: contains(${{ matrix.build }}, 'windows')
+      if: contains(matrix.build, 'windows')
       uses: actions/upload-artifact@master
       with:
         name: symtool-${{ matrix.build }}.zip
