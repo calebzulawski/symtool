@@ -1,5 +1,8 @@
 name: Create Release Artifacts
-on: [push]
+on:
+  push:
+    tags:
+    - '*'
 jobs:
   test:
     name: test
