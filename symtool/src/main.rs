@@ -1,7 +1,7 @@
 use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg, ArgMatches,
 };
-use goblin::elf::sym::{Sym, STV_DEFAULT, STV_HIDDEN};
+use goblin::elf::sym::{Sym, STB_GLOBAL, STT_NOTYPE, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
 use hashbrown::HashMap;
 use regex::RegexSet;
@@ -87,6 +87,25 @@ fn make_sym_default(s: &Sym, name: &str, verbose: bool) -> Sym {
     }
 }
 
+fn change_sym_vis(
+    sym: &Sym,
+    name: &str,
+    verbose: bool,
+    hidden_regex: &Option<RegexSet>,
+    default_regex: &Option<RegexSet>,
+) -> Option<Sym> {
+    if sym.st_bind() != STB_GLOBAL || sym.st_type() == STT_NOTYPE {
+        return None;
+    }
+    if default_regex.is_some() && default_regex.as_ref().unwrap().is_match(name) {
+        Some(make_sym_default(sym, name, verbose))
+    } else if hidden_regex.is_some() && hidden_regex.as_ref().unwrap().is_match(name) {
+        Some(make_sym_hidden(sym, name, verbose))
+    } else {
+        None
+    }
+}
+
 fn make_nlist_hidden(s: &Nlist, name: &str, verbose: bool) -> Option<Nlist> {
     if s.n_type & N_STAB != 0u8 {
         None
@@ -112,6 +131,25 @@ fn make_nlist_default(s: &Nlist, name: &str, verbose: bool) -> Option<Nlist> {
             n_type: s.n_type & !N_PEXT,
             ..s.clone()
         })
+    }
+}
+
+fn change_nlist_vis(
+    nlist: &Nlist,
+    name: &str,
+    verbose: bool,
+    hidden_regex: &Option<RegexSet>,
+    default_regex: &Option<RegexSet>,
+) -> Option<Nlist> {
+    if !nlist.is_global() {
+        return None;
+    }
+    if default_regex.is_some() && default_regex.as_ref().unwrap().is_match(name) {
+        make_nlist_default(nlist, name, verbose)
+    } else if hidden_regex.is_some() && hidden_regex.as_ref().unwrap().is_match(name) {
+        make_nlist_hidden(nlist, name, verbose)
+    } else {
+        None
     }
 }
 
@@ -146,20 +184,15 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                         for (ref name, ref sym) in
                             iter.collect::<backend::error::Result<Vec<_>>>()?
                         {
-                            let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let (new_name, new_sym) = if let Some(name) = name {
                                 let new_name = rename_map.get(*name.deref());
-                                let new_sym = if default_regex.is_some()
-                                    && default_regex.as_ref().unwrap().is_match(name)
-                                {
-                                    Some(make_sym_default(sym, debug_name, verbose))
-                                } else if hidden_regex.is_some()
-                                    && hidden_regex.as_ref().unwrap().is_match(name)
-                                {
-                                    Some(make_sym_hidden(sym, debug_name, verbose))
-                                } else {
-                                    None
-                                };
+                                let new_sym = change_sym_vis(
+                                    sym,
+                                    name,
+                                    verbose,
+                                    &hidden_regex,
+                                    &default_regex,
+                                );
                                 (new_name, new_sym)
                             } else {
                                 (None, None)
@@ -182,20 +215,15 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                         for (ref name, ref nlist) in
                             iter.collect::<backend::error::Result<Vec<_>>>()?
                         {
-                            let debug_name = name.as_ref().map_or("unnamed symbol", |x| &x);
                             let (new_name, new_nlist) = if let Some(name) = name {
                                 let new_name = rename_map.get(*name.deref());
-                                let new_nlist = if default_regex.is_some()
-                                    && default_regex.as_ref().unwrap().is_match(name)
-                                {
-                                    make_nlist_default(nlist, debug_name, verbose)
-                                } else if hidden_regex.is_some()
-                                    && hidden_regex.as_ref().unwrap().is_match(name)
-                                {
-                                    make_nlist_hidden(nlist, debug_name, verbose)
-                                } else {
-                                    None
-                                };
+                                let new_nlist = change_nlist_vis(
+                                    nlist,
+                                    name,
+                                    verbose,
+                                    &hidden_regex,
+                                    &default_regex,
+                                );
                                 (new_name, new_nlist)
                             } else {
                                 (None, None)
