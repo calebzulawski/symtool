@@ -51,6 +51,7 @@ jobs:
     - name: Package zip
       if: contains(matrix.build, 'windows')
       run: Compress-Archive symtool/target/${{ matrix.target }}/release/symtool.exe symtool.zip
+      shell: powershell
     - name: Upload tar.gz
       if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
       uses: actions/upload-artifact@master
