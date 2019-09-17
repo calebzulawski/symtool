@@ -32,7 +32,12 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }}
         override: true
-    - name: Build and test
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
+    - name: Test
       uses: actions-rs/cargo@v1
       with:
         command: test
