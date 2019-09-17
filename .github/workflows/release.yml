@@ -17,15 +17,12 @@ jobs:
         - build: linux-x86_64
           os: ubuntu-latest
           target: x86_64-unknown-linux-musla
-          type: tar.gz
         - build: macos-x86_64
           os: macOS-latest
           target: x86_64-apple-darwin
-          type: tar.gz
         - build: windows-x86_64
           os: windows-latest
           target: x86_64-pc-windows-msvc
-          type: zip
     steps:
     - name: Checkout repository
       uses: actions/checkout@v1
@@ -46,20 +43,20 @@ jobs:
         command: test
         args: --release --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
     - name: Package tar.gz
-      if: !contains(${{ matrix.os }}, 'windows')
+      if: contains(${{ matrix.build }}, 'linux') || contains(${{ matrix.build }}, 'macos')
       run: tar -czvf symtool.tar.gz -C symtool/target/release symtool
     - name: Package zip
-      if: contains(${{ matrix.os }}, 'windows')
+      if: contains(${{ matrix.build }}, 'windows')
       run: Compress-Archive symtool/target/release/symtool.exe symtool.zip
     - name: Upload tar.gz
+      if: contains(${{ matrix.build }}, 'linux') || contains(${{ matrix.build }}, 'macos')
       uses: actions/upload-artifact@master
-      if: !contains(${{ matrix.os }}, 'windows')
       with:
         name: symtool-${{ matrix.build }}.tar.gz
         path: symtool.tar.gz
     - name: Upload zip
+      if: contains(${{ matrix.build }}, 'windows')
       uses: actions/upload-artifact@master
-      if: contains(${{ matrix.os }}, 'windows')
       with:
         name: symtool-${{ matrix.build }}.zip
         path: symtool.zip
