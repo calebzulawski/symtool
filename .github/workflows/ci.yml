@@ -27,7 +27,19 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v1
+    - name: Install toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
     - name: Build
-      run: cargo build --verbose --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
-    - name: Run tests
-      run: cargo test --verbose --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        arguments: --manifest-path=symtool/Cargo.toml
+    - name: Test
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        arguments: --manifest-path=symtool/Cargo.toml
