@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
 description = "symtool edits static symbol tables of MachO and ELF object files and archives"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 symtool-backend = { version = "0.1", path = "../symtool-backend" }

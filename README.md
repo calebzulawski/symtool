@@ -27,7 +27,12 @@ symtool --rename foo bar input.o output.o
 ```
 Note: symbols are renamed in-place so the new name cannot be longer than the original.
 
-### Why use symtool?
-* Pretty fast (objects are simply patched, not recreated)
-* Should support a wide variety of unusual object formats (for example, Intel's ICC merges string tables)
+## Why use symtool?
+* Pretty fast (objects are simply patched, no regeneration or relocations necessary)
+* Supports a wide variety of unusual object formats (for example, Intel's ICC merges string tables)
 * Cross-platform method of adjusting symbol visibility of existing objects and archives (GNU ld can do this when linking, but Apple's ld64 cannot)
+
+## License
+symtool is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
+
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.

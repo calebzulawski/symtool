@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
 description = "symtool-backend provides the symbol manipulation framework for the symtool utility"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 goblin = "0.0.24"
