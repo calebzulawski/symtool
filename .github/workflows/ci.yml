@@ -1,0 +1,38 @@
+name: ci
+on:
+  pull_request:
+  push: 
+  - master
+  schedule:
+  - chron '00 01 * * *'
+jobs:
+  test:
+    name: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build:
+        - linux-musl
+        - linux-gnu
+        - macos
+        - windows
+        include:
+        - build: linux-musl
+          os: ubuntu-latest
+          target: x86_64-unknown-linux-musl
+        - build: linux-gnu
+          os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+        - build: macos
+          os: macOS-10.14
+          target: x86_64-apple-darwin
+        - build: windows
+          os: windows-2019
+          target: x86_64-pc-windows-msvc
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v1
+    - name: Build
+      run: cargo build --verbose --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
+    - name: Run tests
+      run: cargo test --verbose --target ${{ matrix.target }} --manifest-path=symtool/Cargo.toml
