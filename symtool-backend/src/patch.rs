@@ -17,10 +17,7 @@ pub struct Rooted<T> {
 
 impl<T> Rooted<T> {
     pub(crate) fn new(location: Location, value: T) -> Self {
-        Self {
-            value: value,
-            location: location,
-        }
+        Self { value, location }
     }
 
     pub fn patch_with<U>(&self, value: U) -> Result<Patch>

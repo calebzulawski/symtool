@@ -9,12 +9,8 @@ fn get_variant_and_identifiers<R: Read + Seek>(
 ) -> Result<(ar::Variant, Vec<Vec<u8>>)> {
     let mut ar = ar::Archive::new(reader);
     let mut identifiers = Vec::new();
-    loop {
-        if let Some(entry) = ar.next_entry() {
-            identifiers.push(entry?.header().identifier().to_vec());
-        } else {
-            break;
-        }
+    while let Some(entry) = ar.next_entry() {
+        identifiers.push(entry?.header().identifier().to_vec());
     }
     let variant = ar.variant();
     ar.into_inner()?.seek(SeekFrom::Start(0))?;
@@ -49,8 +45,8 @@ impl<'a> ArchiveBuilder<'a> {
 }
 
 pub enum Object<'a> {
-    Elf(Elf<'a>),
-    MachO(MachO<'a>),
+    Elf(Box<Elf<'a>>),
+    MachO(Box<MachO<'a>>),
 }
 
 pub type ObjectTransform<Error> =
@@ -85,14 +81,10 @@ where
     let (variant, identifiers) = get_variant_and_identifiers(reader)?;
     let mut input = ar::Archive::new(reader);
     let mut output = ArchiveBuilder::new(writer, variant, identifiers);
-    loop {
-        if let Some(mut entry) = input.next_entry().transpose()? {
-            let mut data = Vec::new();
-            transform_single(&mut entry, &mut data, transformation)?;
-            output.append(entry.header(), data.as_slice())?;
-        } else {
-            break;
-        }
+    while let Some(mut entry) = input.next_entry().transpose()? {
+        let mut data = Vec::new();
+        transform_single(&mut entry, &mut data, transformation)?;
+        output.append(entry.header(), data.as_slice())?;
     }
     Ok(())
 }
@@ -110,11 +102,13 @@ where
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
     let object = match goblin::Object::parse(&buf)? {
-        goblin::Object::Elf(elf) => Ok(Object::Elf(elf)),
-        goblin::Object::Mach(goblin::mach::Mach::Binary(macho)) => Ok(Object::MachO(macho)),
+        goblin::Object::Elf(elf) => Ok(Object::Elf(Box::new(elf))),
+        goblin::Object::Mach(goblin::mach::Mach::Binary(macho)) => {
+            Ok(Object::MachO(Box::new(macho)))
+        }
         _ => Err(Error::UnknownObject),
     }?;
-    let patches = transformation(&buf, object).map_err(|e| TransformError::Transform(e))?;
+    let patches = transformation(&buf, object).map_err(TransformError::Transform)?;
     for patch in patches {
         patch.apply(&mut buf);
     }

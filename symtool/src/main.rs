@@ -5,7 +5,6 @@ use goblin::elf::sym::{Sym, STB_GLOBAL, STT_NOTYPE, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
 use hashbrown::HashMap;
 use regex::RegexSet;
-use std::io::Write;
 use std::ops::Deref;
 
 use symtool_backend as backend;
@@ -62,7 +61,7 @@ fn main() {
         .get_matches();
 
     run(&matches).unwrap_or_else(|e| {
-        writeln!(std::io::stderr(), "error: {}", e).unwrap();
+        eprintln!("error: {}", e);
         std::process::exit(-1)
     });
 }
@@ -155,13 +154,10 @@ fn change_nlist_vis(
 
 pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
     let verbose = matches.is_present("verbose");
-    let hidden_regex = matches
-        .values_of("hidden")
-        .map(|regexes| RegexSet::new(regexes))
-        .transpose()?;
+    let hidden_regex = matches.values_of("hidden").map(RegexSet::new).transpose()?;
     let default_regex = matches
         .values_of("default")
-        .map(|regexes| RegexSet::new(regexes))
+        .map(RegexSet::new)
         .transpose()?;
     let mut rename_map = HashMap::new();
     if let Some(rename) = matches.values_of("rename") {
@@ -197,15 +193,11 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                             } else {
                                 (None, None)
                             };
-                            if name.is_some() && new_name.is_some() {
-                                patches.push(
-                                    name.as_ref()
-                                        .unwrap()
-                                        .patch_with_bytes(new_name.unwrap().as_bytes())?,
-                                );
+                            if let (Some(name), Some(new_name)) = (name, new_name) {
+                                patches.push(name.patch_with_bytes(new_name.as_bytes())?);
                             }
-                            if new_sym.is_some() {
-                                patches.push(sym.patch_with(new_sym.unwrap())?);
+                            if let Some(new_sym) = new_sym {
+                                patches.push(sym.patch_with(new_sym)?);
                             }
                         }
                     }
@@ -228,15 +220,11 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                             } else {
                                 (None, None)
                             };
-                            if name.is_some() && new_name.is_some() {
-                                patches.push(
-                                    name.as_ref()
-                                        .unwrap()
-                                        .patch_with_bytes(new_name.unwrap().as_bytes())?,
-                                );
+                            if let (Some(name), Some(new_name)) = (name, new_name) {
+                                patches.push(name.patch_with_bytes(new_name.as_bytes())?);
                             }
-                            if new_nlist.is_some() {
-                                patches.push(nlist.patch_with(new_nlist.unwrap())?);
+                            if let Some(new_nlist) = new_nlist {
+                                patches.push(nlist.patch_with(new_nlist)?);
                             }
                         }
                     }

@@ -50,8 +50,8 @@ impl<'a> SymtabIter<'a> {
             return Err(Error::Malformed("sh_link too large".to_string()));
         }
         Ok(Self {
-            bytes: bytes,
-            ctx: ctx,
+            bytes,
+            ctx,
             symoff: header.sh_offset as usize,
             stroff: headers[header.sh_link as usize].sh_offset as usize,
             step: header.sh_entsize as usize,
@@ -120,7 +120,7 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
                     let offset = self.stroff + sym.st_name as usize;
                     let name: &str = self.bytes.pread(offset)?;
                     let location = Location {
-                        offset: offset,
+                        offset,
                         size: name.len(),
                         ctx: self.ctx,
                     };

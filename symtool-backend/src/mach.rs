@@ -33,8 +33,8 @@ pub struct SymtabIter<'a> {
 impl<'a> SymtabIter<'a> {
     pub fn from_load_command(bytes: &'a [u8], command: &SymtabCommand, ctx: Ctx) -> Self {
         Self {
-            bytes: bytes,
-            ctx: ctx,
+            bytes,
+            ctx,
             symoff: command.symoff as usize,
             stroff: command.stroff as usize,
             count: command.nsyms as usize,
@@ -77,7 +77,7 @@ impl<'a> std::iter::Iterator for SymtabIter<'a> {
                     let offset = self.stroff + nlist.n_strx as usize;
                     let name: &str = self.bytes.pread(offset)?;
                     let location = Location {
-                        offset: offset,
+                        offset,
                         size: name.len(),
                         ctx: self.ctx,
                     };
