@@ -1,0 +1,53 @@
+.TH SYMTOOL 1
+.SH NAME
+.B symtool
+\- manipulate static symbols in ELF and Mach-O binaries
+.SH SYNOPSIS
+.B symtool
+[OPTIONS]
+.IR INPUT
+.IR OUTPUT
+
+.B symtool
+--help
+
+.B symtool
+--version
+.SH DESCRIPTION
+The \fBsymtool\fR utility manipulates static symbols in ELF and Mach-O binaries.
+
+Archives are also supported, however the index is stripped so you may need to use \fBranlib\fR or similar to create a new index.
+
+Unlike many other binary manipulation utilities, \fBsymtool\fR does not rebuild the binary, but simply manipulates the appropriate values in-place.
+.SH EXIT STATUS
+Returns 0 on success, or -1 on failure.
+.SH POSITIONAL ARGUMENTS
+.IR INPUT
+Path to a binary or archive file to manipulate.
+
+.IR OUTPUT
+Path to write the modified binary or archive.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Prints help information.
+.TP
+.BR \-V ", " \-\-version
+Prints version information.
+.TP
+.BR \-v ", " \-\-verbose
+Prints information about each operation performed.
+.TP
+.BR \-\-default\ \fIPATTERN\fR
+Sets all symbols with names matching regex PATTERN to default visibility.
+Patterns are unanchored Perl-style regex.
+
+Takes precedence over \-\-hidden.
+.TP
+.BR \-\-hidden\ \fIPATTERN\fR
+Sets all symbols with names matching regex PATTERN to hidden visibility.
+Patterns are unanchored Perl-style regex.
+.TP
+.BR \-\-rename\ \fIOLD\fR\ \fINEW\fR
+Renames symbol named OLD to NEW.
+NEW must have the same or fewer number of characters as OLD.
