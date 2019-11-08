@@ -50,7 +50,7 @@ jobs:
       run: strip symtool/target/${{ matrix.target }}/release/symtool
     - name: Package tar.gz
       if: contains(matrix.build, 'linux') || contains(matrix.build, 'macos')
-      run: tar -czvf symtool-${{ matrix.build }}.tar.gz -C `pwd`/symtool/target/${{ matrix.target }}/release/ symtool -C `pwd`/.. doc/symtool.1
+      run: tar -czvf symtool-${{ matrix.build }}.tar.gz -C `pwd`/symtool/target/${{ matrix.target }}/release/ symtool -C `pwd`/symtool doc/symtool.1
     - name: Package zip
       if: contains(matrix.build, 'windows')
       run: Compress-Archive symtool/target/${{ matrix.target }}/release/symtool.exe symtool-${{ matrix.build }}.zip
