@@ -1,6 +1,6 @@
 [package]
 name = "symtool"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 edition = "2018"
 description = "symtool edits static symbol tables of MachO and ELF object files and archives"
@@ -17,7 +17,7 @@ include = [
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-symtool-backend = { version = "0.1", path = "../symtool-backend" }
+symtool-backend = { version = "0.2", path = "../symtool-backend" }
 clap = { version = "2.33", default-features = false, features = ["suggestions", "wrap_help"] }
 regex = "1"
 goblin = "0.1"
