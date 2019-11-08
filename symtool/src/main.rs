@@ -3,8 +3,8 @@ use clap::{
 };
 use goblin::elf::sym::{Sym, STB_GLOBAL, STT_NOTYPE, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
-use hashbrown::HashMap;
 use regex::RegexSet;
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use symtool_backend as backend;

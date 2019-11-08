@@ -1,3 +1,5 @@
+//! Manipulate ELF binaries.
+
 use crate::error::{Error, Result};
 use crate::patch::{Location, Rooted};
 use goblin::container::{Container, Ctx, Endian};
@@ -21,6 +23,7 @@ fn context_from_elf(elf: &Elf) -> Ctx {
     Ctx::new(container, endian)
 }
 
+/// An iterator over an ELF symbol table.
 pub struct SymtabIter<'a> {
     bytes: &'a [u8],
     ctx: Ctx,
@@ -32,6 +35,9 @@ pub struct SymtabIter<'a> {
 }
 
 impl<'a> SymtabIter<'a> {
+    /// Construct a `SymtabIter` from a section header.
+    ///
+    /// Symbol tables are indicated by `SHT_SYMTAB` or `SHT_DYNSYM` section header types.
     pub fn from_section_header(
         bytes: &'a [u8],
         header: &SectionHeader,
@@ -64,6 +70,9 @@ impl<'a> SymtabIter<'a> {
         })
     }
 
+    /// Construct a `SymtabIter` from an ELF binary's static symbol table.
+    ///
+    /// The static symbol table is in the `SHT_SYMTAB` section.
     pub fn symtab_from_elf(bytes: &'a [u8], elf: &Elf) -> Result<Option<Self>> {
         let ctx = context_from_elf(elf);
         for header in &elf.section_headers {
@@ -80,6 +89,9 @@ impl<'a> SymtabIter<'a> {
         Ok(None)
     }
 
+    /// Construct a `SymtabIter` from an ELF binary's dynamic symbol table.
+    ///
+    /// The dynamic symbol table is in the `SHT_DYNSYM` section.
     pub fn dynsym_from_elf(bytes: &'a [u8], elf: &Elf) -> Result<Option<Self>> {
         let ctx = context_from_elf(elf);
         for header in &elf.section_headers {

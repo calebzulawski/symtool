@@ -7,6 +7,6 @@ description = "symtool-backend provides the symbol manipulation framework for th
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-goblin = "0.0.24"
-scroll = "0.9.2"
+goblin = "0.1"
+scroll = "0.10"
 ar = "0.8.0"

@@ -10,8 +10,7 @@ license = "MIT OR Apache-2.0"
 symtool-backend = { version = "0.1", path = "../symtool-backend" }
 clap = { version = "2.33", default-features = false, features = ["suggestions", "wrap_help"] }
 regex = "1"
-goblin = "0.0.24"
-hashbrown = "0.6"
+goblin = "0.1"
 
 [profile.release]
 lto = true

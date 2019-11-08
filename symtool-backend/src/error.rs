@@ -1,19 +1,39 @@
+//! Errors returned by this crate.
+
 pub type Result<T> = std::result::Result<T, Error>;
 pub type TransformResult<T, E> = std::result::Result<T, TransformError<E>>;
 
+/// An error
 #[derive(Debug)]
 pub enum Error {
+    /// An I/O error
     Io(std::io::Error),
+
+    /// An error from goblin, the binary parser
     Goblin(goblin::error::Error),
+
+    /// An error from scroll, used by the binary parser
     Scroll(scroll::Error),
+
+    /// The loaded object is malformed
     Malformed(String),
+
+    /// Replacing a string failed
     ReplaceString {
         original: String,
         replacement: String,
     },
+
+    /// The loaded object could not be recognized
     UnknownObject,
+
+    /// Returned when loading a macOS fat binary
     FatBinaryUnsupported,
+
+    /// The ELF section header did not match a symbol table
     WrongSectionHeader(String),
+
+    /// A patch was too big to insert into the binary
     PatchTooBig,
 }
 
@@ -64,12 +84,16 @@ impl From<scroll::Error> for Error {
     }
 }
 
+/// An error returned by the object transformer
 #[derive(Debug)]
 pub enum TransformError<T>
 where
     T: std::error::Error,
 {
+    /// An error produced by symtool
     SymTool(Error),
+
+    /// An error produced by the transformer
     Transform(T),
 }
 

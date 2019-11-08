@@ -1,3 +1,5 @@
+//! Manipulate Mach-O binaries.
+
 use crate::error::Result;
 use crate::patch::{Location, Rooted};
 use goblin::container::{Container, Ctx, Endian};
@@ -21,6 +23,7 @@ fn context_from_macho(macho: &MachO) -> Ctx {
     Ctx::new(container, endian)
 }
 
+/// An iterator over a Mach-O symbol table.
 pub struct SymtabIter<'a> {
     bytes: &'a [u8],
     ctx: Ctx,
@@ -31,6 +34,9 @@ pub struct SymtabIter<'a> {
 }
 
 impl<'a> SymtabIter<'a> {
+    /// Construct a `SymtabIter` from a load command.
+    ///
+    /// Symbol tables are indicated by a `symtab_command`, with type `LC_SYMTAB`.
     pub fn from_load_command(bytes: &'a [u8], command: &SymtabCommand, ctx: Ctx) -> Self {
         Self {
             bytes,
@@ -42,6 +48,9 @@ impl<'a> SymtabIter<'a> {
         }
     }
 
+    /// Construct a `SymtabIter` from a Mach-O binary's static symbol table.
+    ///
+    /// The static symbol table is in the `LC_SYMTAB` load command.
     pub fn from_mach(bytes: &'a [u8], mach: &MachO) -> Option<Self> {
         let ctx = context_from_macho(mach);
         for command in &mach.load_commands {

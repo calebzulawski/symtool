@@ -1,14 +1,23 @@
+//! Describe patches to an object.
+
 use crate::error::{Error, Result};
 use goblin::container::Ctx;
 use scroll::ctx::{SizeWith, TryIntoCtx};
 
+/// The location of a set of bytes in an object.
 #[derive(Debug)]
 pub(crate) struct Location {
+    /// The byte offset into the object
     pub offset: usize,
+
+    /// The number of bytes
     pub size: usize,
+
+    /// Contextual information containing endianness and object type
     pub ctx: Ctx,
 }
 
+/// A value rooted to a location in an object.
 #[derive(Debug)]
 pub struct Rooted<T> {
     pub value: T,
@@ -20,14 +29,15 @@ impl<T> Rooted<T> {
         Self { value, location }
     }
 
+    /// Construct a patch that replaces this rooted value.
     pub fn patch_with<U>(&self, value: U) -> Result<Patch>
     where
-        U: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error, Size = usize>
-            + SizeWith<Ctx, Units = usize>,
+        U: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error> + SizeWith<Ctx>,
     {
         Patch::from_ctx(&self.location, value)
     }
 
+    /// Construct a patch that replaces this rooted value with specific bytes.
     pub fn patch_with_bytes(&self, value: &[u8]) -> Result<Patch> {
         Patch::from_bytes(&self.location, value)
     }
@@ -41,6 +51,7 @@ impl<T> std::ops::Deref for Rooted<T> {
     }
 }
 
+/// Represents a patch to an object.
 #[derive(Debug)]
 pub struct Patch {
     offset: usize,
@@ -50,8 +61,7 @@ pub struct Patch {
 impl Patch {
     fn from_ctx<T>(location: &Location, data: T) -> Result<Self>
     where
-        T: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error, Size = usize>
-            + SizeWith<Ctx, Units = usize>,
+        T: TryIntoCtx<Ctx, [u8], Error = goblin::error::Error> + SizeWith<Ctx>,
     {
         let size = T::size_with(&location.ctx);
         if size > location.size {
@@ -75,6 +85,7 @@ impl Patch {
         })
     }
 
+    /// Apply the patch to the bytes of an object.
     pub fn apply(&self, data: &mut [u8]) {
         data[self.offset..(self.offset + self.data.len())].clone_from_slice(&self.data);
     }

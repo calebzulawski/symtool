@@ -1,3 +1,5 @@
+//! Apply transformations to an object.
+
 use crate::error::{Error, Result, TransformError, TransformResult};
 use crate::patch::Patch;
 use goblin::elf::Elf;
@@ -44,14 +46,23 @@ impl<'a> ArchiveBuilder<'a> {
     }
 }
 
+/// A generic object type
 pub enum Object<'a> {
     Elf(Box<Elf<'a>>),
     MachO(Box<MachO<'a>>),
 }
 
+/// The type of a transformation applied to an object.
+///
+/// A transformation is expected to return a set of patches which are applied in order to the
+/// binary.
 pub type ObjectTransform<Error> =
     dyn for<'a> Fn(&'a [u8], Object) -> std::result::Result<Vec<Patch>, Error>;
 
+/// Apply a transformation to a binary or an archive of binaries.
+///
+/// Objects are parsed from `reader` and stored into `writer`.
+/// This function supports both BSD and GNU style archives.
 pub fn transform_object<'b, R, W, E>(
     reader: &mut R,
     writer: &mut W,
