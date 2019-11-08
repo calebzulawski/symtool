@@ -2,9 +2,21 @@
 name = "symtool-backend"
 version = "0.1.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
-edition = "2018"
-description = "symtool-backend provides the symbol manipulation framework for the symtool utility"
 license = "MIT OR Apache-2.0"
+description = "symtool-backend provides the symbol manipulation framework for the symtool utility"
+repository = "https://github.com/calebzulawski/symtool"
+categories = ["command-line-utilities", "development-tools::build-utils", "parsing"]
+readme = "README.md"
+include = [
+    "/Cargo.lock",
+    "/Cargo.toml",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
+    "/README.md",
+    "/src/**",
+    "/tests/**",
+]
+edition = "2018"
 
 [dependencies]
 goblin = "0.1"
