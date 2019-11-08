@@ -4,7 +4,19 @@ Static symbol manipulation tool for ELF and Mach-O objects
 [![Build Status](https://github.com/calebzulawski/symtool/workflows/Continuous%20Integration/badge.svg)](https://github.com/calebzulawski/symtool)
 
 ## Installation
+### Manual installation
 Download the [latest release for your operating system](https://github.com/calebzulawski/symtool/releases).
+
+### Homebrew (macOS, Linux, Windows Subsystem for Linux)
+```bash
+brew tap calebzulawski/symtool http://github.com/calebzulawski/symtool.git
+brew install symtool
+```
+
+### Cargo
+```bash
+cargo install symtool
+```
 
 ## File type support
 Supports ELF and Mach-O objects, and archives of objects.
