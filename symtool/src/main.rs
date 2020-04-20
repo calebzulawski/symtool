@@ -1,7 +1,7 @@
 use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg, ArgMatches,
 };
-use goblin::elf::sym::{Sym, STB_GLOBAL, STT_NOTYPE, STV_DEFAULT, STV_HIDDEN};
+use goblin::elf::sym::{Sym, STB_GLOBAL, STB_WEAK, STT_NOTYPE, STV_DEFAULT, STV_HIDDEN};
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
 use regex::RegexSet;
 use std::collections::HashMap;
@@ -93,7 +93,7 @@ fn change_sym_vis(
     hidden_regex: &Option<RegexSet>,
     default_regex: &Option<RegexSet>,
 ) -> Option<Sym> {
-    if sym.st_bind() != STB_GLOBAL || sym.st_type() == STT_NOTYPE {
+    if (sym.st_bind() != STB_GLOBAL && sym.st_bind() != STB_WEAK) || sym.st_type() == STT_NOTYPE {
         return None;
     }
     if default_regex.is_some() && default_regex.as_ref().unwrap().is_match(name) {
