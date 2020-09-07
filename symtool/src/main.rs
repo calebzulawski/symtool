@@ -194,7 +194,12 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                                 (None, None)
                             };
                             if let (Some(name), Some(new_name)) = (name, new_name) {
-                                patches.push(name.patch_with_bytes(new_name.as_bytes())?);
+                                // Resize the new name to match the old name, extending with NUL bytes as required.
+                                // Since we checked that the new length is shorter than or equal to the old length
+                                // above, this will only be extending the length.
+                                let mut new_name_bytes = new_name.as_bytes().to_vec();
+                                new_name_bytes.resize(name.len(), 0);
+                                patches.push(name.patch_with_bytes(&new_name_bytes)?);
                             }
                             if let Some(new_sym) = new_sym {
                                 patches.push(sym.patch_with(new_sym)?);
@@ -221,7 +226,12 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
                                 (None, None)
                             };
                             if let (Some(name), Some(new_name)) = (name, new_name) {
-                                patches.push(name.patch_with_bytes(new_name.as_bytes())?);
+                                // Resize the new name to match the old name, extending with NUL bytes as required.
+                                // Since we checked that the new length is shorter than or equal to the old length
+                                // above, this will only be extending the length.
+                                let mut new_name_bytes = new_name.as_bytes().to_vec();
+                                new_name_bytes.resize(name.len(), 0);
+                                patches.push(name.patch_with_bytes(&new_name_bytes)?);
                             }
                             if let Some(new_nlist) = new_nlist {
                                 patches.push(nlist.patch_with(new_nlist)?);
