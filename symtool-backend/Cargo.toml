@@ -19,6 +19,5 @@ include = [
 edition = "2018"
 
 [dependencies]
-goblin = "0.1"
+goblin = "0.4"
 scroll = "0.10"
-ar = "0.8.0"

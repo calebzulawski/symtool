@@ -5,6 +5,7 @@ use goblin::elf::sym::{Sym, STB_GLOBAL, STB_WEAK, STT_NOTYPE, STV_DEFAULT, STV_H
 use goblin::mach::symbols::{Nlist, N_PEXT, N_STAB};
 use regex::RegexSet;
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::ops::Deref;
 
 use symtool_backend as backend;
@@ -72,7 +73,7 @@ fn make_sym_hidden(s: &Sym, name: &str, verbose: bool) -> Sym {
     }
     Sym {
         st_other: (s.st_other & 0xfc) | STV_HIDDEN,
-        ..s.clone()
+        ..*s
     }
 }
 
@@ -82,7 +83,7 @@ fn make_sym_default(s: &Sym, name: &str, verbose: bool) -> Sym {
     }
     Sym {
         st_other: (s.st_other & 0xfc) | STV_DEFAULT,
-        ..s.clone()
+        ..*s
     }
 }
 
@@ -243,8 +244,9 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
             Ok(patches)
         });
 
-    let mut input = std::fs::File::open(matches.value_of("INPUT").unwrap())?;
-    let mut output = std::fs::File::create(matches.value_of("OUTPUT").unwrap())?;
-    backend::object::transform_object(&mut input, &mut output, &transform)?;
+    let mut object = Vec::new();
+    std::fs::File::open(matches.value_of("INPUT").unwrap())?.read_to_end(&mut object)?;
+    backend::object::transform_object(&mut object, &transform)?;
+    std::fs::File::create(matches.value_of("OUTPUT").unwrap())?.write_all(&object)?;
     Ok(())
 }

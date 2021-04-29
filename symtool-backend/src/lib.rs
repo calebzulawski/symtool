@@ -1,5 +1,5 @@
 //! This crate provides utilities for patching symbol tables in ELF and Mach-O binaries.
-//! 
+//!
 //! This is the implementation behind the [symtool](https://github.com/calebzulawski/symtool)
 //! utility.
 
