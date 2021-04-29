@@ -19,10 +19,10 @@ jobs:
           os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
         - build: macos
-          os: macOS-10.14
+          os: macOS-latest
           target: x86_64-apple-darwin
         - build: windows
-          os: windows-2019
+          os: windows-latest
           target: x86_64-pc-windows-msvc
     steps:
     - name: Checkout repository
