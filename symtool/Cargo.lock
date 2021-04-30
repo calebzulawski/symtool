@@ -154,7 +154,7 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "symtool"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "clap",
  "goblin",
@@ -164,7 +164,7 @@ dependencies = [
 
 [[package]]
 name = "symtool-backend"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "goblin",
  "scroll",

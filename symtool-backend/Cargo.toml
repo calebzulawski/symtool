@@ -1,6 +1,6 @@
 [package]
 name = "symtool-backend"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Caleb Zulawski <caleb.zulawski@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "symtool-backend provides the symbol manipulation framework for the symtool utility"
